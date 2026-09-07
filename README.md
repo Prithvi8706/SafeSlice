@@ -94,17 +94,26 @@ One run:
 python experiments/run_experiment.py --policy linucb --scenario burst --seed 0
 ```
 
-The whole thing, from nothing to tables and figures (about 90 minutes):
+Reproduce the results tables and figures (~30 min):
 
 ```bash
-python experiments/run_suite.py      # every policy x scenario x seed -> results/raw/
+python experiments/run_suite.py      # 320 runs -> results/raw/.  --resume continues an
+                                     # interrupted one without redoing finished cells.
 python -m analysis.aggregate         # seed-averaged tables -> results/summary/
 python -m analysis.plots             # five figures -> results/summary/figures/
 ```
 
-**Do not run two experiment scripts at once.** `decision_latency_ms` is measured against a real
-wall clock, and a second job on the same machine corrupts exactly the metric used to claim the
-method is lightweight.
+Reproduce the hyperparameter choice and the sensitivity study as well (~50 min more):
+
+```bash
+python experiments/tune.py                     # alpha and epsilon sweeps, 280 runs
+python experiments/sensitivity.py --resume     # reward-weight study, 720 runs
+```
+
+**Do not run two of these at once.** `decision_latency_ms` is measured against a real wall clock,
+and a second job on the same machine corrupts exactly the metric used to claim the method is
+lightweight. Both long scripts are resumable, so an interruption costs only the runs it was in
+the middle of.
 
 ---
 

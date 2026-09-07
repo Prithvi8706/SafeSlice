@@ -60,6 +60,11 @@ repository that ran.
 - Hyperparameters were selected on seeds disjoint from the evaluation seeds, and the pre-trained
   variants were trained on those same held-out seeds. Nothing was tuned or trained on a seed it
   was scored on.
+- **Watching the instantaneous latency tail as well as the EWMA is load-bearing, not belt-and-
+  braces.** Across all 320 runs, 38.3 % of guardrail escalations were triggered by the
+  instantaneous p95 alone, against 4.8 % by the EWMA alone. An EWMA-only guardrail would have
+  missed more than a third of them. Argued from first principles in week 1a, confirmed by
+  measurement afterwards.
 - **The learned policy is the only one whose behaviour responds to the reward weights.** Raising
   `w_sla` sixteen-fold moves LinUCB's violation rate from 1.51 % to 0.88 % and its eMBB goodput
   from 3.524 to 3.315 Mbps, with no re-tuning; `threshold` and both static baselines are

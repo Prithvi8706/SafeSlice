@@ -236,8 +236,29 @@ shorter than the EWMA settling time. So:
 - The intervention rate is **not** a count of prevented violations. The counterfactual was never
   run. Some interventions would not have caused a violation at all.
 
-The instantaneous-tail fast path earns its place: `guardrail_escalation_source` is logged per step
-and figure `fig4_guardrail` shows the split between EWMA-only and instantaneous-only escalations.
+### The instantaneous fast path earns its place, and here is the number
+
+`docs/DESIGN.md` section 4 argued in week 1a that a guardrail watching only the smoothed latency
+would be late by construction against short sharp spikes, so the hard override fires on *either*
+the EWMA or the current p95, and `guardrail_escalation_source` records which. That was a design
+argument with no evidence behind it at the time. Across all 320 runs, 86,400 post-warm-up steps:
+
+| Which signal exceeded the threshold | steps | share of escalations |
+|---|---|---|
+| EWMA only (the slow path) | 838 | 4.8 % |
+| **instantaneous p95 only (the fast path)** | **6,740** | **38.3 %** |
+| both | 10,002 | 56.9 % |
+| total escalating steps | 17,580 | — |
+
+**An EWMA-only guardrail would have missed 38.3 % of all escalations** — 6,740 steps where latency
+had already crossed the threshold but the smoothed signal had not caught up. The converse case,
+where the EWMA fired and the instantaneous tail did not, accounts for 4.8 %. The fast path is
+carrying roughly eight times the unique load of the slow one, and dropping it would have quietly
+removed more than a third of the guardrail's coverage.
+
+This is the one design decision in the project that was argued from first principles in week one
+and is confirmed by measurement in week five. Figure `fig4_guardrail` shows the same split per
+policy.
 
 ---
 
