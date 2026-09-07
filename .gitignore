@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Raw per-step logs are large and regenerable from (policy, scenario, seed).
+results/raw/
+
+.DS_Store

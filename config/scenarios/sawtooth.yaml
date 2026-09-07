@@ -1,0 +1,34 @@
+# eMBB sawtooth crossed with a two-level URLLC load.
+#
+# This is the scenario the whole project stands or falls on, so it is worth stating what it is
+# for. URLLC toggles between 1.5 Mbps (BELOW its 2.0 Mbps min-rate guarantee, therefore safe at
+# any eMBB level) and 3.0 Mbps (ABOVE the guarantee, therefore vulnerable). The eMBB sawtooth is
+# not aligned to that toggle, so the run visits all four combinations.
+#
+# Consequences we should expect and must check:
+#   - No single fixed eMBB level is correct for the whole run, so StaticEqual and StaticSafe
+#     should both leave measurable value on the table. That is what makes dynamic slicing worth
+#     doing at all.
+#   - Threshold reacts to latency, so it can only lower eMBB AFTER URLLC has already been hurt.
+#     A context-aware policy can in principle see urllc_util rise and act before the latency does.
+#     That is the only mechanism by which LinUCB can genuinely beat Threshold here.
+#   - If LinUCB does not beat Threshold on THIS scenario, it will not beat it anywhere, and the
+#     honest report is that learning is not warranted at this scale.
+
+scenario:
+  name: sawtooth
+  description: "URLLC toggles 1.5 / 3.0 Mbps out of phase with an eMBB sawtooth; BE steady 3.5."
+  repeat: cyclic
+  jitter_cv:
+    urllc: 0.04
+    embb: 0.12
+    be: 0.20
+  phases:
+    - {duration_s: 25, urllc_mbps: 1.5, embb_mbps: 2.0, embb_mbps_end: 9.0, be_mbps: 3.5}
+    - {duration_s: 5,  urllc_mbps: 1.5, embb_mbps: 2.0, be_mbps: 3.5}
+    - {duration_s: 20, urllc_mbps: 3.0, embb_mbps: 2.0, embb_mbps_end: 9.0, be_mbps: 3.5}
+    - {duration_s: 5,  urllc_mbps: 3.0, embb_mbps: 2.0, be_mbps: 3.5}
+    - {duration_s: 15, urllc_mbps: 3.0, embb_mbps: 2.0, embb_mbps_end: 9.0, be_mbps: 3.5}
+    - {duration_s: 5,  urllc_mbps: 1.5, embb_mbps: 2.0, be_mbps: 3.5}
+    - {duration_s: 30, urllc_mbps: 1.5, embb_mbps: 2.0, embb_mbps_end: 9.0, be_mbps: 3.5}
+    - {duration_s: 5,  urllc_mbps: 3.0, embb_mbps: 2.0, be_mbps: 3.5}

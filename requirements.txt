@@ -1,0 +1,16 @@
+# Core. Needed for SimBackend, policies, metrics, aggregation.
+numpy>=1.24
+PyYAML>=6.0
+pandas>=2.0
+scipy>=1.10
+
+# Plots. Week 2 onward.
+matplotlib>=3.7
+
+# Tests.
+pytest>=7.4
+
+# NOT listed here on purpose:
+#   mininet   - installed system-wide on the VM, not via pip. See docs/SETUP.md.
+#   ryu       - unmaintained, pinned to a feasibility check in Week 4. See docs/SETUP.md.
+#   os-ken    - the maintained fork, same.

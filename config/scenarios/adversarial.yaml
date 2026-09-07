@@ -1,0 +1,30 @@
+# PROVISIONAL. See docs/PLAN.md deviation D1.
+#
+# This scenario is designed against the SIMULATOR, before any real testbed measurement exists.
+# It is a guess about what trips the guardrail, and it must be retuned in Week 1b once we have
+# seen real OVS behaviour. Do not report results from this file as-is without saying so.
+#
+# Attack idea: exploit the EWMA lag. Hold URLLC low long enough that the latency EWMA settles and
+# any latency-reactive policy has raised eMBB to an aggressive level, then step URLLC up sharply
+# for a burst that is shorter than the EWMA time constant. A purely reactive policy pays a full
+# violation before it can respond. A guardrail that only watches the EWMA is late for the same
+# reason; a guardrail that also watches instantaneous p95 is not. That difference is the point.
+
+scenario:
+  name: adversarial
+  description: "Long calm periods that lure eMBB high, punctuated by short sharp URLLC steps."
+  repeat: cyclic
+  jitter_cv:
+    urllc: 0.05
+    embb: 0.15
+    be: 0.25
+  phases:
+    # Lure: URLLC below its guarantee, eMBB demand high. Safe, so policies drift to a high level.
+    - {duration_s: 30, urllc_mbps: 1.2, embb_mbps: 9.0, be_mbps: 3.5}
+    # Strike: URLLC steps well above its guarantee for less than the EWMA settling time.
+    - {duration_s: 6,  urllc_mbps: 4.0, embb_mbps: 9.0, be_mbps: 3.5}
+    # Relax, just long enough to re-lure but not long enough to fully forget.
+    - {duration_s: 20, urllc_mbps: 1.2, embb_mbps: 9.0, be_mbps: 3.5}
+    - {duration_s: 6,  urllc_mbps: 4.0, embb_mbps: 9.0, be_mbps: 3.5}
+    - {duration_s: 35, urllc_mbps: 1.2, embb_mbps: 9.0, be_mbps: 3.5}
+    - {duration_s: 8,  urllc_mbps: 4.0, embb_mbps: 9.0, be_mbps: 3.5}

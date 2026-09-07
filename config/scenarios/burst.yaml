@@ -1,0 +1,22 @@
+# eMBB burst while URLLC is steady.
+#
+# This is the scenario a static policy finds EASIEST, because the URLLC load never moves, so
+# there is one correct eMBB level for the whole run and a fixed split can sit on it. We keep it
+# exactly as specified in the brief for that reason: it is the honest hard case for our method,
+# not the flattering one. If the bandit cannot beat a static split here, that is expected and
+# should be reported, not hidden.
+#
+# URLLC is held at 3.0 Mbps, which is above its 0.20 min-rate guarantee (2.0 Mbps). That gap is
+# what makes URLLC vulnerable at all. See docs/DESIGN.md.
+
+scenario:
+  name: burst
+  description: "Steady URLLC at 3 Mbps and steady BE at 4 Mbps; eMBB alternates idle and burst."
+  repeat: cyclic
+  jitter_cv:
+    urllc: 0.03
+    embb: 0.15
+    be: 0.25
+  phases:
+    - {duration_s: 40, urllc_mbps: 3.0, embb_mbps: 2.0,  be_mbps: 4.0}
+    - {duration_s: 35, urllc_mbps: 3.0, embb_mbps: 10.0, be_mbps: 4.0}

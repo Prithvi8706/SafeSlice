@@ -1,0 +1,119 @@
+# Default configuration. Scenario files under config/scenarios/ are merged on top of this.
+#
+# Every number here is a design choice, not a measurement. The ones that are meant to be
+# justified by measurement (sla.target_ms in particular) are cross-referenced to the script
+# that will measure them. Until that script has been run on the VM, they are provisional.
+
+run:
+  duration_s: 300           # total simulated / wall-clock seconds per run
+  warmup_s: 30              # leading seconds excluded from all reported metrics
+  control_interval_s: 1.0   # one allocation decision per interval
+
+link:
+  # Emulation-scaled bottleneck. 10 Mbps makes contention visible without pinning host CPU.
+  capacity_bps: 10000000
+  # Propagation plus stack overhead with an empty queue. On the VM this is measured by
+  # experiments/measure_noise_floor.py; the sim value below is a modelling constant, not a
+  # measurement, and the two are compared in Week 1b.
+  base_rtt_ms: 2.0
+
+slices:
+  # min_share is the HTB min-rate guarantee as a fraction of link capacity.
+  # URLLC's guarantee is deliberately BELOW its peak offered load. Provisioning the guarantee
+  # at the peak is exactly the StaticSafe baseline: it never violates and it wastes capacity.
+  # The whole point of dynamic slicing is to avoid paying that. See docs/DESIGN.md.
+  urllc:
+    queue: 0
+    # 1.0 Mbps guaranteed against a 1.5 to 4.0 Mbps offered load. Provisioned for a quiet
+    # period, not for the peak. Provisioning at the peak IS the StaticSafe baseline.
+    min_share: 0.10
+  embb:
+    queue: 1
+    min_share: 0.10
+  be:
+    queue: 2
+    min_share: 0.05
+  # Best Effort gets a fixed max-rate. It is deliberately NOT coupled to the action, because
+  # a be_cap that shrinks exactly as embb_cap grows holds total offered demand constant and
+  # cancels the action's effect on URLLC. See docs/DESIGN.md.
+  be_cap_share: 0.45
+
+action:
+  # Absolute eMBB rate caps as a fraction of link capacity. Absolute, not relative, so each
+  # round is independent given the context. See docs/DESIGN.md section "Action space".
+  embb_levels: [0.20, 0.35, 0.50, 0.65, 0.80]
+  # Level applied before the first decision, and the level the guardrail clamps to.
+  floor_index: 0
+  initial_index: 1
+
+sla:
+  # EMULATION-SCALED, and DERIVED FROM MEASUREMENT rather than picked. See docs/DESIGN.md
+  # section "Emulation-scaled SLO" for the table these came from.
+  #
+  # The slide deck proposed 15 ms target / 25 ms hard. Those are UNREACHABLE in this simulator.
+  # Under demand-proportional HTB borrowing a backlogged queue automatically claims a larger
+  # share of the leftover, so URLLC self-stabilises at a bounded backlog. Measured p95 ceiling
+  # across every action level at this operating point is about 9 ms. A 25 ms hard limit would
+  # therefore yield zero violations for every policy, an idle guardrail, and nothing to measure.
+  # Inflating sim.substep_s would raise the ceiling, but that is tuning the physics to fit the
+  # threshold, so we did not do it.
+  #
+  # Measured p95 by action level on burst.yaml at this operating point (seed 0, burst phase):
+  #   level 0.20 -> 2.00 ms   0.35 -> 3.39 ms   0.50 -> 5.27 ms   0.65 -> 7.16 ms   0.80 -> 9.04 ms
+  # target 5.0 and hard 7.0 place the decision boundary between levels 0.50 and 0.65, so
+  # different policies land on different sides of it and the SLA constrains something real.
+  #
+  # THE TESTBED VALUE WILL DIFFER. On real Mininet, scheduler jitter alone is milliseconds, so
+  # experiments/measure_noise_floor.py re-derives these in Week 1b and the deck's 15 ms may well
+  # be right there. Sim and testbed SLA violation rates are NOT comparable until both are
+  # derived the same way. Stated as a limitation in docs/DESIGN.md rather than papered over.
+  target_ms: 5.0
+  hard_ms: 7.0
+
+guardrail:
+  enabled: true
+  warn_ms: 4.0              # above this, mask out aggressive levels
+  safe_ceiling_index: 2     # highest level index still allowed while in the warn band
+  holddown_steps: 3         # steps clamped to floor_index after a hard override
+
+reward:
+  # r = w_tput*norm(embb) + w_be*norm(be)
+  #     - w_sla*max(0, rtt - target)/target - w_viol*1[rtt > hard] - w_drop*norm(drops)
+  w_tput: 1.0
+  w_be: 0.30
+  w_sla: 1.0
+  w_viol: 2.0
+  w_drop: 0.50
+  # Which RTT statistic the SLA terms use. p95 is the stricter and more defensible choice for
+  # a latency SLO; p50 is also logged so the sensitivity of the conclusion can be checked.
+  rtt_statistic: urllc_rtt_ms_p95
+
+context:
+  ewma_alpha: 0.30          # weight on the newest sample
+  clip_max: 3.0             # features are clipped to [0, clip_max] after normalization
+
+sim:
+  substep_s: 0.01           # queue simulation granularity inside one control interval
+  queue_limit_bytes: 62500  # 50 ms of link capacity; tail drop beyond this
+  packet_bytes: 1500        # used only to convert dropped bytes into a packet count
+  # Token bucket depth, sized PER QUEUE from that queue's own cap:
+  #     burst = max(cap_bps * substep_s / 8 * multiplier, min_bytes)
+  # A single global burst constant does not work. If the constant exceeds a queue's per-substep
+  # accrual, the bucket pins at the constant and the max-rate cap stops binding, which silently
+  # made every level above 0.35 behave identically. tc sizes HTB burst from the class rate for
+  # exactly this reason, so we do the same.
+  bucket_burst_multiplier: 1.0
+  bucket_burst_min_bytes: 3000   # two MTUs, so a small cap can still pass whole packets
+  # How leftover capacity is split once every queue has its min-rate guarantee.
+  # THIS IS THE LOAD-BEARING MODELLING ASSUMPTION OF THE WHOLE SIMULATOR.
+  #   demand_proportional - a backlogged, high-ceiling class captures most of the leftover.
+  #                         Pessimistic for URLLC. This is what makes the control problem exist.
+  #   equal               - strict per-queue fair share. Under this, URLLC's residual demand is
+  #                         usually covered for free and no controller is needed.
+  #   min_rate_proportional - leftover split in proportion to the min-rate guarantees.
+  # Week 1b compares all three against the real OVS testbed. See docs/DESIGN.md.
+  excess_sharing: demand_proportional
+
+experiment:
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  results_dir: results/raw

@@ -1,0 +1,22 @@
+# Gradual eMBB ramp against a steady URLLC load.
+#
+# The ramp sweeps eMBB demand across the whole range, so the correct eMBB level changes slowly
+# and continuously. This is the scenario where a threshold heuristic should do well, because the
+# right answer is a smooth monotone function of one observable. It is included as the case that
+# is hardest for a learned policy to justify itself on.
+#
+# A phase may declare *_mbps_end to ramp linearly from *_mbps to *_mbps_end across the phase.
+
+scenario:
+  name: ramp
+  description: "URLLC 2.5 Mbps and BE 3.5 Mbps steady; eMBB ramps 1 -> 9 Mbps and back."
+  repeat: cyclic
+  jitter_cv:
+    urllc: 0.03
+    embb: 0.10
+    be: 0.20
+  phases:
+    - {duration_s: 60, urllc_mbps: 2.5, embb_mbps: 1.0, embb_mbps_end: 9.0, be_mbps: 3.5}
+    - {duration_s: 20, urllc_mbps: 2.5, embb_mbps: 9.0, be_mbps: 3.5}
+    - {duration_s: 40, urllc_mbps: 2.5, embb_mbps: 9.0, embb_mbps_end: 1.0, be_mbps: 3.5}
+    - {duration_s: 15, urllc_mbps: 2.5, embb_mbps: 1.0, be_mbps: 3.5}
