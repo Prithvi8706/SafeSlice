@@ -46,6 +46,7 @@ from agent.context import FEATURE_NAMES, ContextBuilder  # noqa: E402
 from agent.guardrail import Guardrail  # noqa: E402
 from agent.policies.base import all_allowed  # noqa: E402
 from agent.policies.static import StaticEqual, StaticSafe  # noqa: E402
+from agent.policies.threshold import Threshold  # noqa: E402
 from agent.reward import reward_breakdown  # noqa: E402
 from analysis.metrics import (  # noqa: E402
     RUN_COLUMNS,
@@ -57,12 +58,13 @@ from net.backend import allocation_from_level  # noqa: E402
 from net.sim_backend import SimBackend  # noqa: E402
 from traffic.traces import build_trace  # noqa: E402
 
-#: Week 1a ships the two static baselines. Threshold lands in Week 2, the bandits in Week 3,
-#: Oracle in Week 4. Keeping the registry here means adding a policy is a one-line change and
-#: the runner never needs to know what kind of policy it is holding.
+#: The registry. Adding a policy is a one-line change here and the runner never needs to know
+#: what kind of policy it is holding: static, reactive, learned or oracle all go through the
+#: same guardrail and produce the same CSV schema, which is what makes the rows comparable.
 POLICIES = {
     "static_equal": StaticEqual,
     "static_safe": StaticSafe,
+    "threshold": Threshold,
 }
 
 BACKENDS = ("sim",)  # ovs_cli and ryu land in Week 1b and Week 4
