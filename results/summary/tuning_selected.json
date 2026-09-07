@@ -1,0 +1,19 @@
+{
+  "selected": {
+    "policy.epsilon_greedy.epsilon": 0.0
+  },
+  "seeds": [
+    100,
+    101,
+    102,
+    103,
+    104
+  ],
+  "scenarios": [
+    "adversarial",
+    "burst",
+    "ramp",
+    "sawtooth"
+  ],
+  "note": "tuned on training seeds, disjoint from experiment.seeds"
+}

@@ -4,8 +4,9 @@ EVERY NUMBER HERE IS RECOMPUTED FROM THE PER-STEP LOGS.
 `results/summary/runs.csv` written by the suite runner is a cache and is deliberately ignored by
 default. If a metric definition in `analysis/metrics.py` changes, re-running this produces the
 new number; reading the cache would produce the old one, and nothing in the file would say which
-definition it came from. The `--from-cache` flag exists only for the case where the raw logs have
-been deleted, and it prints a warning saying the numbers may predate the current definitions.
+definition it came from. There is deliberately no flag to read the cache instead: if the raw logs
+are gone, the right answer is to re-run the suite, not to publish numbers whose definition is
+unknown.
 
 WHY THE COMPARISON IS PAIRED
 A seed fixes the offered-load trace bit for bit (`traffic/traces.py:trace_seed`), so every policy
@@ -223,6 +224,35 @@ def paired_deltas(
                     }
                 )
     return pd.DataFrame(out)
+
+
+def regret_vs_oracle(
+    runs: pd.DataFrame, oracle_policy: str = "oracle", metric: str = "mean_reward"
+) -> pd.DataFrame:
+    """Per-seed shortfall against the Oracle, averaged, with a paired CI.
+
+    regret = oracle_reward - policy_reward, on the same seed, so a POSITIVE number means the
+    policy did worse than the reference.
+
+    THE NAME MATTERS AND MUST SURVIVE INTO THE REPORT. The Oracle is the best phase-static
+    allocation, not the best allocation (agent/policies/oracle.py). A policy that varies its
+    level within a phase can beat it, so a NEGATIVE regret here is a legitimate result, not an
+    error. Call this "regret against the best phase-static allocation" or do not call it regret.
+    """
+    deltas = paired_deltas(runs, baseline=oracle_policy, metrics=[metric])
+    if deltas.empty:
+        return deltas
+    out = deltas.copy()
+    # paired_deltas returns policy - oracle; regret is the other direction.
+    for col in ("mean_delta", "ci95_lo", "ci95_hi"):
+        out[col] = -out[col]
+    out = out.rename(columns={"mean_delta": "mean_regret", "ci95_lo": "regret_ci95_lo",
+                              "ci95_hi": "regret_ci95_hi", "baseline": "oracle"})
+    # Negating swaps the interval ends; put them back in order.
+    lo = np.minimum(out["regret_ci95_lo"], out["regret_ci95_hi"])
+    hi = np.maximum(out["regret_ci95_lo"], out["regret_ci95_hi"])
+    out["regret_ci95_lo"], out["regret_ci95_hi"] = lo, hi
+    return out
 
 
 # --------------------------------------------------------------------------- presentation

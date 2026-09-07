@@ -37,6 +37,14 @@ class Policy(ABC):
     def reset(self, seed: int = 0) -> None:
         """Clear per-run state. Called once at the start of every run."""
 
+    def freeze(self) -> None:
+        """Stop exploring. No-op for anything that never explored.
+
+        Used by the pre-trained ("converged") evaluation in docs/EXPERIMENTS.md section 1: the
+        model is trained on other seeds, then frozen, then evaluated. For a learning policy this
+        is a real behavioural change (alpha or epsilon to zero), not a reporting flag.
+        """
+
 
 def all_allowed(n_actions: int) -> np.ndarray:
     return np.ones(n_actions, dtype=bool)
