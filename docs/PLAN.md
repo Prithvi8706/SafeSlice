@@ -2,7 +2,31 @@
 
 Project: Safe Dynamic Network Slicing for SLA-Preserving SDN.
 Branch: `dev`. `main` is unborn and stays untouched.
-Status of this document: awaiting go-ahead. No implementation code written yet.
+
+---
+
+## STATUS UPDATE (added after the fact; the rest of this document is the plan as originally
+## written and is deliberately left unedited, including the parts that turned out wrong)
+
+**What was built:** the entire simulator track. Weeks 1a, 2, 3 and 5 in full, plus the Week 4
+reward sensitivity study and the Oracle. Six deployable policies and one reference line, four
+scenarios, ten seeds, with tuning and pre-training on held-out seeds. Results in
+`docs/EXPERIMENTS.md`.
+
+**What was not built:** the entire testbed track. Week 1b (Mininet topology, `OvsCliBackend`,
+`measure_noise_floor.py`), the Week 2 iperf3/ping traffic generator, and the Week 4 Ryu
+feasibility check and `RyuBackend`. The development machine has no Mininet, no Open vSwitch and
+no root, so none of it could be executed, and the decision was taken not to ship network code
+that had never been run.
+
+**What that costs:** the gate this plan set for itself in section 6 — compare sim against real
+OVS, stop if the gap invalidates sim conclusions — was never evaluated. Section 4's load-bearing
+assumption about excess capacity sharing therefore remains an assumption. Every conclusion in
+this project is conditional on it. See `docs/REPORT_OUTLINE.md` section 8.
+
+**On the prediction in section 4:** it said, before any policy existed, that LinUCB might fail to
+separate from a hand-tuned threshold and that this would be reported as the finding. See
+`docs/EXPERIMENTS.md` for what actually happened.
 
 ---
 

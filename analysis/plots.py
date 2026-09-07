@@ -54,15 +54,21 @@ POLICY_COLOURS = {
     "static_equal": "#55A868",
     "threshold": "#C44E52",
     "epsilon_greedy": "#8172B2",
+    "epsilon_greedy_pretrained": "#B8A2D8",   # lighter shade of its online counterpart
     "linucb": "#CCB974",
+    "linucb_pretrained": "#8C6D1F",           # darker shade of its online counterpart
     "oracle": "#937860",
 }
+#: Online and converged variants sit next to each other so the cost of exploration reads off the
+#: figure as an adjacent pair rather than as two points the reader has to hunt for.
 POLICY_ORDER = [
     "static_safe",
     "static_equal",
     "threshold",
     "epsilon_greedy",
+    "epsilon_greedy_pretrained",
     "linucb",
+    "linucb_pretrained",
     "oracle",
 ]
 
@@ -153,6 +159,7 @@ def fig2_tradeoff(runs: pd.DataFrame, out_dir: Optional[Path] = None) -> Path:
     fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4.4 * nrows), squeeze=False)
 
     for ax, scenario in zip(axes.flat, scenarios):
+        placed = []          # (x, y, policy) already drawn on this axis, for label fanning
         for policy in policies:
             g = summary[(summary["policy"] == policy) & (summary["scenario"] == scenario)]
             if g.empty:
@@ -169,7 +176,19 @@ def fig2_tradeoff(runs: pd.DataFrame, out_dir: Optional[Path] = None) -> Path:
                 yerr=None if not np.isfinite(ye) else ye,
                 fmt="o", ms=8, capsize=3, color=_colour(policy), label=policy,
             )
-            ax.annotate(policy, (xm, ym), textcoords="offset points", xytext=(7, 4), fontsize=8)
+            # Policies whose means coincide would stack their labels on top of each other and
+            # become unreadable, which matters here because coinciding IS the finding on ramp:
+            # three policies land on the same point. Fan the offsets out by index so every
+            # label survives, rather than silently drawing them over one another.
+            placed.append((xm, ym, policy))
+            dy = 5 + 11 * sum(
+                1 for px, py, _ in placed[:-1]
+                if abs(px - xm) <= 0.02 * max(abs(xm), 1e-9) + 1e-6
+                and abs(py - ym) <= 0.01 * max(abs(ym), 1e-9) + 1e-9
+            )
+            ax.annotate(
+                policy, (xm, ym), textcoords="offset points", xytext=(8, dy), fontsize=8
+            )
         ax.set_title(scenario)
         ax.set_xlabel("SLA violation rate (% of steps)  ← better")
         ax.set_ylabel("eMBB goodput (Mbps)  better →")

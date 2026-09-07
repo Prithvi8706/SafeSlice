@@ -1,9 +1,23 @@
 # SETUP
 
-Two environments. The pure-Python side runs anywhere. The real backends need a Linux VM with
-root.
+## STATUS: sections 1, 2, 4 and 5 describe a testbed that was never built
 
-Anything below marked `TBD` has not been verified on your VM and I will not guess at it.
+Read this before following anything below. **There are no real backends.** `OvsCliBackend`,
+`RyuBackend`, the Mininet topology and the iperf3/ping traffic generator were never written, so
+the VM install, the Ryu notes and the pre-session checklist are instructions for software that
+does not exist in this repository. They are kept because they remain the correct starting point
+if someone picks the testbed track up later, and deleting them would hide the fact that a planned
+half of the project is missing.
+
+**To run everything that does exist, you need section 3 only**: any OS, any Python 3.9+, no root,
+no Mininet, no Open vSwitch.
+
+---
+
+Two environments. The pure-Python side runs anywhere. The real backends would need a Linux VM
+with root.
+
+Anything below marked `TBD` was never verified, and is now not pending but abandoned.
 
 ---
 
@@ -83,10 +97,9 @@ source .venv/bin/activate && pip install -r requirements.txt
 pytest -q
 ```
 
-Expected: all tests pass, and tests marked `requires_mininet` are reported as skipped. As of
-Week 1a there are no `requires_mininet` tests yet; the marker and the `--run-mininet` flag are
-registered in `tests/conftest.py` and the first marked tests arrive with `OvsCliBackend` in
-Week 1b.
+Expected: all tests pass. There are **no** `requires_mininet` tests, because there is no code that
+would need Mininet. The marker and the `--run-mininet` flag remain registered in
+`tests/conftest.py` so that testbed tests have somewhere to land if that work is ever done.
 
 ### Sub-second ping
 
@@ -122,11 +135,24 @@ pytest -q
 ```
 
 ```bash
-python experiments/run_experiment.py --policy static_equal --scenario burst --seed 0
+python experiments/run_experiment.py --policy linucb --scenario burst --seed 0
 ```
 
+The full grid, the tuning sweeps, the sensitivity study, the tables and the figures:
+
+```bash
+python experiments/run_suite.py       # 320 runs, ~30 min. --resume continues an interrupted one.
+python experiments/tune.py            # alpha and epsilon sweeps, ~11 min
+python experiments/sensitivity.py     # reward-weight study
+python -m analysis.aggregate          # tables
+python -m analysis.plots              # figures
+```
+
+Run these **one at a time**. `decision_latency_ms` is measured against a real wall clock, so a
+second job on the same machine corrupts it.
+
 Verified working on Windows 11, Python 3.9.13, numpy 1.26.4, pandas 2.3.1, scipy 1.13.1,
-pytest 8.3.5.
+matplotlib 3.9.4, pytest 8.3.5.
 
 ---
 

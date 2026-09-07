@@ -16,7 +16,7 @@ import pytest
 
 from agent.policies.bandit_policy import EpsilonGreedyPolicy, LinUCBPolicy, policy_seed
 from agent.policies.base import all_allowed
-from config_loader import load_config
+from config_loader import list_scenarios, load_config
 from experiments.run_experiment import PRETRAINED, pretrain, run_once
 from traffic.traces import trace_seed
 
@@ -31,10 +31,17 @@ def test_policy_seed_is_process_independent():
     assert policy_seed(3, "epsilon_greedy") != policy_seed(3, "linucb")
 
 
-def test_policy_stream_differs_from_the_traffic_stream(cfg):
-    """The exploration RNG must not be initialised identically to the traffic RNG."""
-    for seed in range(8):
-        assert policy_seed(seed, "epsilon_greedy") != trace_seed(cfg, seed)
+def test_policy_stream_differs_from_the_traffic_stream():
+    """The exploration RNG must not be initialised identically to the traffic RNG.
+
+    trace_seed takes the SCENARIO NAME, not the config object. Passing the config would hash its
+    repr, and the assertion below would pass while comparing against something that is not the
+    trace seed at all.
+    """
+    for scenario in list_scenarios():
+        for seed in range(8):
+            assert policy_seed(seed, "epsilon_greedy") != trace_seed(scenario, seed)
+            assert policy_seed(seed, "linucb") != trace_seed(scenario, seed)
 
 
 def test_training_seeds_are_disjoint_from_evaluation_seeds():
