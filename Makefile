@@ -21,8 +21,9 @@ help:
 	@echo "  make test         run the test suite (fast, no network stack needed)"
 	@echo "  make run          one run:  POLICY=$(POLICY) SCEN=$(SCEN) SEED=$(SEED)"
 	@echo "  make suite        the full grid: every policy x scenario x seed (~30 min)"
+	@echo "  make suite-resume continue an interrupted suite"
 	@echo "  make tune         alpha and epsilon sweeps on the training seeds (~11 min)"
-	@echo "  make sensitivity  reward-weight sensitivity study (~30 min)"
+	@echo "  make sensitivity  reward-weight sensitivity study (~40 min, resumable)"
 	@echo "  make tables       seed-averaged tables from results/raw"
 	@echo "  make figures      the five report figures"
 	@echo "  make all          suite, then tables, then figures"
@@ -53,8 +54,14 @@ tune:
 	$(PYTHON) experiments/tune.py
 
 .PHONY: sensitivity
+# --resume keeps the rows already in results/summary/sensitivity_runs.csv. Safe to re-run after
+# an interruption; it will not redo finished cells and will not append to a stale study.
 sensitivity:
-	$(PYTHON) experiments/sensitivity.py
+	$(PYTHON) experiments/sensitivity.py --resume
+
+.PHONY: suite-resume
+suite-resume:
+	$(PYTHON) experiments/run_suite.py --resume
 
 .PHONY: tables
 tables:

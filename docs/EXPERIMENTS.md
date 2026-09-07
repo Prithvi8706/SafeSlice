@@ -289,7 +289,69 @@ precise cost figure, for the reason in section 1.
 
 ## 8. Reward-weight sensitivity
 
-See section 9 of this file — populated by `experiments/sensitivity.py`.
+720 runs: `w_sla` in {0.25, 0.5, 1.0, 2.0, 4.0} x `w_drop` in {0.0, 0.5, 1.0} x 4 policies x
+4 scenarios x 3 training seeds. Reduced from the full grid (3 seeds not 5, 3 `w_drop` values not
+4) to keep the study inside one machine-hour; stated because it makes these intervals wider than
+those in section 4, not because it changes the conclusion.
+
+**Rewards from different cells are not comparable.** Changing a weight changes the units of the
+reward. Only two things are read across cells: the ordering of policies within a cell, and the
+physical metrics, which are in milliseconds and Mbps and mean the same thing regardless.
+
+### The ordering is NOT stable, and that is the finding
+
+| `w_sla` | `w_drop` | ordering, best first |
+|---|---|---|
+| 0.25 | 0.0 / 0.5 / 1.0 | threshold > linucb > static_equal > static_safe |
+| 0.50 | 0.0 / 0.5 / 1.0 | threshold > linucb > static_equal > static_safe |
+| 1.00 | 0.0 / 0.5 / 1.0 | threshold > linucb > static_equal > static_safe |
+| 2.00 | 0.0 | **static_equal** > linucb > threshold > static_safe |
+| 2.00 | 0.5 / 1.0 | threshold > linucb > static_equal > static_safe |
+| 4.00 | 0.0 | **static_equal** > linucb > threshold > static_safe |
+| 4.00 | 0.5 | **static_equal** > linucb > threshold > static_safe |
+| 4.00 | 1.0 | **linucb** > threshold > static_equal > static_safe |
+
+Three different policies win somewhere in this sweep. **Which policy looks best therefore depends
+on reward weights that a human chose, and the report is required to say so rather than quote the
+`w_sla = 1.0` column as though it were the answer.** The direction is at least intelligible: as
+the SLA penalty grows, the conservative static split overtakes the aggressive reactive
+controller, which is what you would expect and is a weak check that the reward is behaving
+sensibly.
+
+### The result that survives the sweep: only the learned policy responds to the weights
+
+Averaged over `w_drop`, scenarios and seeds:
+
+| SLA violation rate | w_sla 0.25 | 0.50 | 1.00 | 2.00 | 4.00 |
+|---|---|---|---|---|---|
+| `linucb` | 1.51 % | 1.46 % | 1.35 % | 1.17 % | **0.88 %** |
+| `threshold` | 1.54 % | 1.54 % | 1.54 % | 1.54 % | 1.54 % |
+| `static_equal` | 0.00 % | 0.00 % | 0.00 % | 0.00 % | 0.00 % |
+
+| eMBB goodput (Mbps) | w_sla 0.25 | 0.50 | 1.00 | 2.00 | 4.00 |
+|---|---|---|---|---|---|
+| `linucb` | 3.524 | 3.519 | 3.473 | 3.419 | **3.315** |
+| `threshold` | 3.655 | 3.655 | 3.655 | 3.655 | 3.655 |
+| `static_equal` | 2.990 | 2.990 | 2.990 | 2.990 | 2.990 |
+
+`threshold` and the static baselines are **numerically invariant** to the reward weights, to every
+digit. That is not a flaw in the experiment; it is what they are. They are fixed rules that do not
+read the reward, so telling them you care more about latency changes nothing they do.
+
+LinUCB is the only policy here that moves: raise `w_sla` sixteen-fold and it gives up 0.21 Mbps of
+eMBB goodput and cuts its violation rate by 42 %, without anyone re-tuning it. **That is the
+argument for a learned policy that this study actually supports** — not "it scores higher", which
+depends on the weights, but "it is the only one that can be told what to optimise for". A
+deployment whose SLA priorities change does not need a new hand-tuned threshold.
+
+### Limits of this study
+
+- It sweeps **online** LinUCB only. The converged variant, which is the one that wins in section 3,
+  was left out because each cell would cost six runs. So the sensitivity of the *headline* result
+  to the reward weights is **untested**, and that is a real gap.
+- Three seeds per cell, so cell-level differences are noisier than section 4's.
+- `w_tput`, `w_be` and `w_viol` were held fixed. Only the two weights identified in
+  `docs/DESIGN.md` section 5 as suspect were swept.
 
 ---
 

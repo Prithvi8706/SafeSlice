@@ -144,3 +144,82 @@ def test_physical_table_keeps_cells_separate():
     phys = sensitivity.physical_table(runs)
     assert len(phys) == 6                                   # 3 policies x 2 cells
     assert set(zip(phys["w_sla"], phys["w_drop"])) == {(1.0, 0.0), (2.0, 0.5)}
+
+# --------------------------------------------------------------------------- resume
+
+
+def _fake_metrics(policy, scenario, seed, reward=0.5):
+    from analysis.metrics import RunMetrics
+
+    return RunMetrics(
+        policy=policy, scenario=scenario, seed=seed, n_steps=1,
+        urllc_rtt_p50=2.0, urllc_rtt_p95=3.0, urllc_rtt_p99=3.0,
+        sla_violation_rate=0.0, embb_goodput_mbps=1.0, be_goodput_mbps=1.0,
+        total_drops=0, guardrail_intervention_rate=0.0,
+        decision_latency_mean_ms=0.1, decision_latency_p99_ms=0.2,
+        mean_reward=reward, link_util_mean=0.9,
+    )
+
+
+def test_study_writes_each_row_as_it_goes(monkeypatch, tmp_path):
+    """An interrupted study must keep what it already finished.
+
+    The first real run of this study was killed for memory after an hour and lost everything,
+    because it wrote its CSV only at the end. Hence this test.
+    """
+    calls = []
+
+    def fake_run_once(policy_name, scenario, seed, cfg=None, write=True, **kw):
+        calls.append((policy_name, scenario, seed))
+        if len(calls) == 3:
+            raise KeyboardInterrupt("simulated kill")
+        return None, _fake_metrics(policy_name, scenario, seed), None
+
+    monkeypatch.setattr(sensitivity, "run_once", fake_run_once)
+    out = tmp_path / "sens.csv"
+    with pytest.raises(KeyboardInterrupt):
+        sensitivity.study(
+            policies=["static_equal", "threshold"], w_sla_values=[1.0], w_drop_values=[0.0],
+            scenarios=["burst"], seeds=[100, 101], quiet=True, out_csv=out,
+        )
+    survived = pd.read_csv(out)
+    assert len(survived) == 2, "rows finished before the interruption were lost"
+
+
+def test_resume_skips_rows_already_present(monkeypatch, tmp_path):
+    ran = []
+
+    def fake_run_once(policy_name, scenario, seed, cfg=None, write=True, **kw):
+        ran.append((policy_name, scenario, seed))
+        return None, _fake_metrics(policy_name, scenario, seed), None
+
+    monkeypatch.setattr(sensitivity, "run_once", fake_run_once)
+    out = tmp_path / "sens.csv"
+    kwargs = dict(
+        policies=["static_equal"], w_sla_values=[1.0], w_drop_values=[0.0],
+        scenarios=["burst"], quiet=True, out_csv=out,
+    )
+    sensitivity.study(seeds=[100], **kwargs)
+    assert len(ran) == 1
+
+    ran.clear()
+    df = sensitivity.study(seeds=[100, 101], resume=True, **kwargs)
+    assert ran == [("static_equal", "burst", 101)], "resume re-ran a completed cell"
+    assert len(df) == 2, "resume dropped the rows it was meant to keep"
+
+
+def test_without_resume_the_file_is_started_fresh(monkeypatch, tmp_path):
+    """A non-resumed study must not silently append to a previous study's rows."""
+
+    def fake_run_once(policy_name, scenario, seed, cfg=None, write=True, **kw):
+        return None, _fake_metrics(policy_name, scenario, seed), None
+
+    monkeypatch.setattr(sensitivity, "run_once", fake_run_once)
+    out = tmp_path / "sens.csv"
+    kwargs = dict(
+        policies=["static_equal"], w_sla_values=[1.0], w_drop_values=[0.0],
+        scenarios=["burst"], seeds=[100], quiet=True, out_csv=out,
+    )
+    sensitivity.study(**kwargs)
+    sensitivity.study(**kwargs)
+    assert len(pd.read_csv(out)) == 1

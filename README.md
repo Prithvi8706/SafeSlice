@@ -67,6 +67,14 @@ acts on the previous interval's telemetry, so it cannot prevent the first interv
 has not yet seen. What it guarantees is narrower and provable: the applied action is always inside
 the allowed mask, whatever the policy asks for.
 
+A 720-run sweep over the reward weights shows the ranking is **not stable**: three different
+policies take first place depending on `w_sla` and `w_drop`, so no unqualified "policy X is best"
+claim is supportable. What does survive the sweep is more interesting than a ranking — LinUCB is
+the *only* policy whose behaviour responds to the weights at all. Raise the SLA penalty sixteen-
+fold and it gives up 0.21 Mbps of goodput and cuts violations by 42 % on its own; `threshold` and
+the static baselines are invariant to every digit, because they are fixed rules that never read
+the reward.
+
 Full numbers, including what each of these is not allowed to be read as, in
 `docs/EXPERIMENTS.md` and `docs/REPORT_OUTLINE.md`.
 

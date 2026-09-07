@@ -14,6 +14,13 @@ eMBB cap REDUCES drops. w_drop is therefore not a congestion penalty, it is a se
 incentive pulling against the SLA term. A sensitivity study that swept only w_sla would leave
 that confound untested while appearing thorough.
 
+IT WRITES EVERY ROW AS IT GOES, AND IT RESUMES
+The first attempt at this study was killed by the operating system for memory after roughly
+an hour, and because it accumulated everything in memory and wrote the CSV only at the end,
+all of it was lost. So each run is appended to `sensitivity_runs.csv` immediately, and
+`--resume` reads that file and skips cells already present. A study that cannot survive being
+interrupted silently costs an hour every time the machine sneezes.
+
 THE ONE COMPARISON THAT IS NOT VALID HERE
 Rewards from different cells of this sweep are not comparable to each other. Changing a weight
 changes the units of the reward, so a bigger number in one cell does not mean a better outcome
@@ -27,6 +34,7 @@ printed, raw cross-cell rewards are written to CSV but never tabulated side by s
 from __future__ import annotations
 
 import argparse
+import csv
 import itertools
 import json
 import sys
@@ -53,6 +61,21 @@ DEFAULT_W_DROP = [0.0, 0.25, 0.5, 1.0]
 DEFAULT_POLICIES = ["static_safe", "static_equal", "threshold", "linucb"]
 
 
+ROW_FIELDS = [
+    "w_sla", "w_drop", "policy", "scenario", "seed", "mean_reward", "sla_violation_rate",
+    "embb_goodput_mbps", "urllc_rtt_p95_ms", "guardrail_intervention_rate",
+]
+
+
+def _load_existing(path: Path) -> pd.DataFrame:
+    if path.exists():
+        try:
+            return pd.read_csv(path)
+        except Exception:
+            return pd.DataFrame(columns=ROW_FIELDS)
+    return pd.DataFrame(columns=ROW_FIELDS)
+
+
 def study(
     policies: Sequence[str] = DEFAULT_POLICIES,
     w_sla_values: Sequence[float] = DEFAULT_W_SLA,
@@ -60,21 +83,46 @@ def study(
     scenarios: Optional[Sequence[str]] = None,
     seeds: Optional[Sequence[int]] = None,
     quiet: bool = False,
+    out_csv: Optional[Path] = None,
+    resume: bool = False,
 ) -> pd.DataFrame:
-    """One run per (policy, w_sla, w_drop, scenario, seed). Returns the long table."""
+    """One run per (policy, w_sla, w_drop, scenario, seed). Returns the long table.
+
+    Rows are appended to `out_csv` as they are produced, so an interrupted study keeps whatever it
+    had already finished and `resume=True` continues from there.
+    """
     scenarios = list(scenarios) if scenarios else list_scenarios()
     if seeds is None:
         seeds = list(load_config().experiment.train_seeds)
 
+    done = set()
+    rows: List[Dict] = []
+    if out_csv is not None:
+        out_csv = Path(out_csv)
+        if resume:
+            for r in _load_existing(out_csv).to_dict("records"):
+                done.add(
+                    (float(r["w_sla"]), float(r["w_drop"]), r["policy"], r["scenario"],
+                     int(r["seed"]))
+                )
+                rows.append(r)
+        if not resume or not out_csv.exists():
+            out_csv.parent.mkdir(parents=True, exist_ok=True)
+            with open(out_csv, "w", encoding="utf-8", newline="") as fh:
+                csv.DictWriter(fh, fieldnames=ROW_FIELDS).writeheader()
+            done.clear()
+            rows.clear()
+
     cells = list(itertools.product(w_sla_values, w_drop_values))
     total = len(cells) * len(policies) * len(scenarios) * len(seeds)
-    rows: List[Dict] = []
     i = 0
     for w_sla, w_drop in cells:
         for policy in policies:
             for scenario in scenarios:
                 for seed in seeds:
                     i += 1
+                    if (float(w_sla), float(w_drop), policy, scenario, int(seed)) in done:
+                        continue
                     cfg = load_config(
                         scenario=scenario,
                         overrides={"reward.w_sla": w_sla, "reward.w_drop": w_drop},
@@ -84,20 +132,22 @@ def study(
                         policy_name=policy, scenario=scenario, seed=int(seed),
                         cfg=cfg, write=False,
                     )
-                    rows.append(
-                        {
-                            "w_sla": w_sla,
-                            "w_drop": w_drop,
-                            "policy": policy,
-                            "scenario": scenario,
-                            "seed": int(seed),
-                            "mean_reward": m.mean_reward,
-                            "sla_violation_rate": m.sla_violation_rate,
-                            "embb_goodput_mbps": m.embb_goodput_mbps,
-                            "urllc_rtt_p95_ms": m.urllc_rtt_p95,
-                            "guardrail_intervention_rate": m.guardrail_intervention_rate,
-                        }
-                    )
+                    row = {
+                        "w_sla": w_sla,
+                        "w_drop": w_drop,
+                        "policy": policy,
+                        "scenario": scenario,
+                        "seed": int(seed),
+                        "mean_reward": m.mean_reward,
+                        "sla_violation_rate": m.sla_violation_rate,
+                        "embb_goodput_mbps": m.embb_goodput_mbps,
+                        "urllc_rtt_p95_ms": m.urllc_rtt_p95,
+                        "guardrail_intervention_rate": m.guardrail_intervention_rate,
+                    }
+                    rows.append(row)
+                    if out_csv is not None:
+                        with open(out_csv, "a", encoding="utf-8", newline="") as fh:
+                            csv.DictWriter(fh, fieldnames=ROW_FIELDS).writerow(row)
                     if not quiet:
                         print(
                             f"[{i:>4}/{total}] w_sla={w_sla:<5} w_drop={w_drop:<5} "
@@ -179,21 +229,27 @@ def main(argv=None) -> int:
     ap.add_argument("--scenarios", nargs="+", default=None, choices=list_scenarios())
     ap.add_argument("--seeds", nargs="+", type=int, default=None)
     ap.add_argument("--summary-dir", default=None)
+    ap.add_argument(
+        "--resume",
+        action="store_true",
+        help="keep rows already in sensitivity_runs.csv and run only the missing cells",
+    )
     args = ap.parse_args(argv)
 
+    summary_dir = Path(args.summary_dir) if args.summary_dir else REPO_ROOT / "results" / "summary"
+    summary_dir.mkdir(parents=True, exist_ok=True)
     runs = study(
         policies=args.policies,
         w_sla_values=args.w_sla,
         w_drop_values=args.w_drop,
         scenarios=args.scenarios,
         seeds=args.seeds,
+        out_csv=summary_dir / "sensitivity_runs.csv",
+        resume=args.resume,
     )
     rank = rankings(runs)
     phys = physical_table(runs)
 
-    summary_dir = Path(args.summary_dir) if args.summary_dir else REPO_ROOT / "results" / "summary"
-    summary_dir.mkdir(parents=True, exist_ok=True)
-    runs.to_csv(summary_dir / "sensitivity_runs.csv", index=False)
     rank.to_csv(summary_dir / "sensitivity_rankings.csv", index=False)
     phys.to_csv(summary_dir / "sensitivity_physical.csv", index=False)
 

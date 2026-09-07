@@ -1,0 +1,16 @@
+w_sla,w_drop,ranking,winner,margin_first_to_second
+0.25,0.0,threshold > linucb > static_equal > static_safe,threshold,0.010343073566599914
+0.25,0.5,threshold > linucb > static_equal > static_safe,threshold,0.019352391812494485
+0.25,1.0,threshold > linucb > static_equal > static_safe,threshold,0.013494993871217525
+0.5,0.0,threshold > linucb > static_equal > static_safe,threshold,0.008294337842433552
+0.5,0.5,threshold > linucb > static_equal > static_safe,threshold,0.014402125564725976
+0.5,1.0,threshold > linucb > static_equal > static_safe,threshold,0.016899414828533812
+1.0,0.0,threshold > linucb > static_equal > static_safe,threshold,0.006906506743220575
+1.0,0.5,threshold > linucb > static_equal > static_safe,threshold,0.01274804112073269
+1.0,1.0,threshold > linucb > static_equal > static_safe,threshold,0.017914551694435163
+2.0,0.0,static_equal > linucb > threshold > static_safe,static_equal,0.003747209581911104
+2.0,0.5,threshold > linucb > static_equal > static_safe,threshold,0.006222280318475021
+2.0,1.0,threshold > linucb > static_equal > static_safe,threshold,0.013091728584050319
+4.0,0.0,static_equal > linucb > threshold > static_safe,static_equal,0.014841332476465574
+4.0,0.5,static_equal > linucb > threshold > static_safe,static_equal,0.0069183217184450585
+4.0,1.0,linucb > threshold > static_equal > static_safe,linucb,0.0002932660032567147

@@ -35,7 +35,9 @@ never built.
 4. **Experimental protocol.** Determinism, seeds, warm-up, paired comparison, randomized run
    order, held-out tuning and training seeds.
 5. **Results.** `docs/EXPERIMENTS.md` sections 3 to 6.
-6. **Sensitivity.** Whether the ordering of policies survives changes to the reward weights.
+6. **Sensitivity.** Whether the ordering of policies survives changes to the reward weights. It
+   does not: three policies win somewhere in the sweep. What does survive is that only the
+   learned policy responds to the weights at all.
 7. **Limitations.** Section 8 below, in full, not compressed to a sentence.
 
 ---
@@ -58,6 +60,11 @@ repository that ran.
 - Hyperparameters were selected on seeds disjoint from the evaluation seeds, and the pre-trained
   variants were trained on those same held-out seeds. Nothing was tuned or trained on a seed it
   was scored on.
+- **The learned policy is the only one whose behaviour responds to the reward weights.** Raising
+  `w_sla` sixteen-fold moves LinUCB's violation rate from 1.51 % to 0.88 % and its eMBB goodput
+  from 3.524 to 3.315 Mbps, with no re-tuning; `threshold` and both static baselines are
+  numerically invariant to every digit, because they are fixed rules that never read the reward.
+  This is the claim about learned control that the sensitivity study actually supports.
 
 ## 3. Claims the report is NOT allowed to make
 
@@ -90,6 +97,13 @@ This list exists because each of these is a sentence that would be easy to write
   leftover capacity is shared. `docs/DESIGN.md` section 2.
 - **"LinUCB is better than DRL for this problem."** No DRL baseline was implemented. The
   comparison in the literature survey is a citation, not a measurement.
+- **"Policy X is the best."** Unqualified, this is not supportable. The reward-weight sweep puts
+  three different policies in first place depending on `w_sla` and `w_drop`
+  (`docs/EXPERIMENTS.md` section 8). Any ranking claim must name the weights it holds under.
+- **"The sensitivity study shows the headline result is robust."** It does not test the headline
+  result. It sweeps *online* LinUCB; the converged variant, which is the one that wins in
+  section 3, was not included. The robustness of the actual headline to the reward weights is
+  untested.
 
 ---
 
@@ -162,6 +176,9 @@ leaving a stale number behind.
 4. **The scenarios are hand-written**, and `adversarial.yaml` in particular was designed against
    the guardrail's known weakness. It is a stress test, not a traffic model.
 5. **Single operating point.** One capacity, one set of min-rate guarantees, one control interval.
+6. **The reward weights decide the ranking.** `docs/EXPERIMENTS.md` section 8. The `w_sla = 1.0`
+   column used throughout section 4 is a choice, and a different defensible choice reorders the
+   podium.
 
 ---
 
