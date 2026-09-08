@@ -1,0 +1,4520 @@
+{
+  "order_seed": 20250907,
+  "n_runs": 320,
+  "complete": true,
+  "resumed": true,
+  "suite_wall_seconds": 65.60002827644348,
+  "policies": [
+    "epsilon_greedy",
+    "epsilon_greedy_pretrained",
+    "linucb",
+    "linucb_pretrained",
+    "oracle",
+    "static_equal",
+    "static_safe",
+    "threshold"
+  ],
+  "scenarios": [
+    "adversarial",
+    "burst",
+    "ramp",
+    "sawtooth"
+  ],
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "overrides": {},
+  "planned_order": [
+    {
+      "position": 1,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 2
+    },
+    {
+      "position": 2,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 5
+    },
+    {
+      "position": 3,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 5
+    },
+    {
+      "position": 4,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 3
+    },
+    {
+      "position": 5,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 3
+    },
+    {
+      "position": 6,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 9
+    },
+    {
+      "position": 7,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 5
+    },
+    {
+      "position": 8,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 3
+    },
+    {
+      "position": 9,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 9
+    },
+    {
+      "position": 10,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 3
+    },
+    {
+      "position": 11,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 5
+    },
+    {
+      "position": 12,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 7
+    },
+    {
+      "position": 13,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 1
+    },
+    {
+      "position": 14,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 5
+    },
+    {
+      "position": 15,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 3
+    },
+    {
+      "position": 16,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 2
+    },
+    {
+      "position": 17,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 6
+    },
+    {
+      "position": 18,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 0
+    },
+    {
+      "position": 19,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 0
+    },
+    {
+      "position": 20,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 9
+    },
+    {
+      "position": 21,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 9
+    },
+    {
+      "position": 22,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 1
+    },
+    {
+      "position": 23,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 3
+    },
+    {
+      "position": 24,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 4
+    },
+    {
+      "position": 25,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 4
+    },
+    {
+      "position": 26,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 8
+    },
+    {
+      "position": 27,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 4
+    },
+    {
+      "position": 28,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 0
+    },
+    {
+      "position": 29,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 8
+    },
+    {
+      "position": 30,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 5
+    },
+    {
+      "position": 31,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 5
+    },
+    {
+      "position": 32,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 1
+    },
+    {
+      "position": 33,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 9
+    },
+    {
+      "position": 34,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 0
+    },
+    {
+      "position": 35,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 7
+    },
+    {
+      "position": 36,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 1
+    },
+    {
+      "position": 37,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 8
+    },
+    {
+      "position": 38,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 3
+    },
+    {
+      "position": 39,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 5
+    },
+    {
+      "position": 40,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 6
+    },
+    {
+      "position": 41,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 0
+    },
+    {
+      "position": 42,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 6
+    },
+    {
+      "position": 43,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 6
+    },
+    {
+      "position": 44,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 1
+    },
+    {
+      "position": 45,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 7
+    },
+    {
+      "position": 46,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 9
+    },
+    {
+      "position": 47,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 3
+    },
+    {
+      "position": 48,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 9
+    },
+    {
+      "position": 49,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 0
+    },
+    {
+      "position": 50,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 5
+    },
+    {
+      "position": 51,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 0
+    },
+    {
+      "position": 52,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 5
+    },
+    {
+      "position": 53,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 0
+    },
+    {
+      "position": 54,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 9
+    },
+    {
+      "position": 55,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 4
+    },
+    {
+      "position": 56,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 6
+    },
+    {
+      "position": 57,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 3
+    },
+    {
+      "position": 58,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 2
+    },
+    {
+      "position": 59,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 4
+    },
+    {
+      "position": 60,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 1
+    },
+    {
+      "position": 61,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 7
+    },
+    {
+      "position": 62,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 1
+    },
+    {
+      "position": 63,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 9
+    },
+    {
+      "position": 64,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 0
+    },
+    {
+      "position": 65,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 8
+    },
+    {
+      "position": 66,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 2
+    },
+    {
+      "position": 67,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 5
+    },
+    {
+      "position": 68,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 8
+    },
+    {
+      "position": 69,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 0
+    },
+    {
+      "position": 70,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 1
+    },
+    {
+      "position": 71,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 7
+    },
+    {
+      "position": 72,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 8
+    },
+    {
+      "position": 73,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 8
+    },
+    {
+      "position": 74,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 4
+    },
+    {
+      "position": 75,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 5
+    },
+    {
+      "position": 76,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 0
+    },
+    {
+      "position": 77,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 2
+    },
+    {
+      "position": 78,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 6
+    },
+    {
+      "position": 79,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 2
+    },
+    {
+      "position": 80,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 1
+    },
+    {
+      "position": 81,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 1
+    },
+    {
+      "position": 82,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 9
+    },
+    {
+      "position": 83,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 5
+    },
+    {
+      "position": 84,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 7
+    },
+    {
+      "position": 85,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 4
+    },
+    {
+      "position": 86,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 4
+    },
+    {
+      "position": 87,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 5
+    },
+    {
+      "position": 88,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 3
+    },
+    {
+      "position": 89,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 0
+    },
+    {
+      "position": 90,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 2
+    },
+    {
+      "position": 91,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 0
+    },
+    {
+      "position": 92,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 8
+    },
+    {
+      "position": 93,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 3
+    },
+    {
+      "position": 94,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 2
+    },
+    {
+      "position": 95,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 4
+    },
+    {
+      "position": 96,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 2
+    },
+    {
+      "position": 97,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 9
+    },
+    {
+      "position": 98,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 7
+    },
+    {
+      "position": 99,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 8
+    },
+    {
+      "position": 100,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 1
+    },
+    {
+      "position": 101,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 5
+    },
+    {
+      "position": 102,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 2
+    },
+    {
+      "position": 103,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 1
+    },
+    {
+      "position": 104,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 7
+    },
+    {
+      "position": 105,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 2
+    },
+    {
+      "position": 106,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 6
+    },
+    {
+      "position": 107,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 0
+    },
+    {
+      "position": 108,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 8
+    },
+    {
+      "position": 109,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 3
+    },
+    {
+      "position": 110,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 8
+    },
+    {
+      "position": 111,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 3
+    },
+    {
+      "position": 112,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 6
+    },
+    {
+      "position": 113,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 2
+    },
+    {
+      "position": 114,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 2
+    },
+    {
+      "position": 115,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 5
+    },
+    {
+      "position": 116,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 5
+    },
+    {
+      "position": 117,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 4
+    },
+    {
+      "position": 118,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 5
+    },
+    {
+      "position": 119,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 4
+    },
+    {
+      "position": 120,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 8
+    },
+    {
+      "position": 121,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 7
+    },
+    {
+      "position": 122,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 6
+    },
+    {
+      "position": 123,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 0
+    },
+    {
+      "position": 124,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 0
+    },
+    {
+      "position": 125,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 4
+    },
+    {
+      "position": 126,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 6
+    },
+    {
+      "position": 127,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 3
+    },
+    {
+      "position": 128,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 0
+    },
+    {
+      "position": 129,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 6
+    },
+    {
+      "position": 130,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 3
+    },
+    {
+      "position": 131,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 9
+    },
+    {
+      "position": 132,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 3
+    },
+    {
+      "position": 133,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 4
+    },
+    {
+      "position": 134,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 9
+    },
+    {
+      "position": 135,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 2
+    },
+    {
+      "position": 136,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 9
+    },
+    {
+      "position": 137,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 7
+    },
+    {
+      "position": 138,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 1
+    },
+    {
+      "position": 139,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 5
+    },
+    {
+      "position": 140,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 3
+    },
+    {
+      "position": 141,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 9
+    },
+    {
+      "position": 142,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 2
+    },
+    {
+      "position": 143,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 2
+    },
+    {
+      "position": 144,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 7
+    },
+    {
+      "position": 145,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 4
+    },
+    {
+      "position": 146,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 1
+    },
+    {
+      "position": 147,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 7
+    },
+    {
+      "position": 148,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 4
+    },
+    {
+      "position": 149,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 9
+    },
+    {
+      "position": 150,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 0
+    },
+    {
+      "position": 151,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 1
+    },
+    {
+      "position": 152,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 8
+    },
+    {
+      "position": 153,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 2
+    },
+    {
+      "position": 154,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 6
+    },
+    {
+      "position": 155,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 3
+    },
+    {
+      "position": 156,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 9
+    },
+    {
+      "position": 157,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 9
+    },
+    {
+      "position": 158,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 3
+    },
+    {
+      "position": 159,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 6
+    },
+    {
+      "position": 160,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 0
+    },
+    {
+      "position": 161,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 8
+    },
+    {
+      "position": 162,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 7
+    },
+    {
+      "position": 163,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 9
+    },
+    {
+      "position": 164,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 1
+    },
+    {
+      "position": 165,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 9
+    },
+    {
+      "position": 166,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 9
+    },
+    {
+      "position": 167,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 8
+    },
+    {
+      "position": 168,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 5
+    },
+    {
+      "position": 169,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 8
+    },
+    {
+      "position": 170,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 6
+    },
+    {
+      "position": 171,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 4
+    },
+    {
+      "position": 172,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 6
+    },
+    {
+      "position": 173,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 4
+    },
+    {
+      "position": 174,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 2
+    },
+    {
+      "position": 175,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 8
+    },
+    {
+      "position": 176,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 1
+    },
+    {
+      "position": 177,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 6
+    },
+    {
+      "position": 178,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 7
+    },
+    {
+      "position": 179,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 7
+    },
+    {
+      "position": 180,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 0
+    },
+    {
+      "position": 181,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 1
+    },
+    {
+      "position": 182,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 4
+    },
+    {
+      "position": 183,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 3
+    },
+    {
+      "position": 184,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 4
+    },
+    {
+      "position": 185,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 8
+    },
+    {
+      "position": 186,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 3
+    },
+    {
+      "position": 187,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 8
+    },
+    {
+      "position": 188,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 2
+    },
+    {
+      "position": 189,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 1
+    },
+    {
+      "position": 190,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 3
+    },
+    {
+      "position": 191,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 7
+    },
+    {
+      "position": 192,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 9
+    },
+    {
+      "position": 193,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 7
+    },
+    {
+      "position": 194,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 6
+    },
+    {
+      "position": 195,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 7
+    },
+    {
+      "position": 196,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 4
+    },
+    {
+      "position": 197,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 2
+    },
+    {
+      "position": 198,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 3
+    },
+    {
+      "position": 199,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 2
+    },
+    {
+      "position": 200,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 7
+    },
+    {
+      "position": 201,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 6
+    },
+    {
+      "position": 202,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 1
+    },
+    {
+      "position": 203,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 6
+    },
+    {
+      "position": 204,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 4
+    },
+    {
+      "position": 205,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 1
+    },
+    {
+      "position": 206,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 0
+    },
+    {
+      "position": 207,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 9
+    },
+    {
+      "position": 208,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 8
+    },
+    {
+      "position": 209,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 6
+    },
+    {
+      "position": 210,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 3
+    },
+    {
+      "position": 211,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 2
+    },
+    {
+      "position": 212,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 1
+    },
+    {
+      "position": 213,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 8
+    },
+    {
+      "position": 214,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 6
+    },
+    {
+      "position": 215,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 0
+    },
+    {
+      "position": 216,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 5
+    },
+    {
+      "position": 217,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 6
+    },
+    {
+      "position": 218,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 1
+    },
+    {
+      "position": 219,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 4
+    },
+    {
+      "position": 220,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 7
+    },
+    {
+      "position": 221,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 7
+    },
+    {
+      "position": 222,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 8
+    },
+    {
+      "position": 223,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 4
+    },
+    {
+      "position": 224,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 3
+    },
+    {
+      "position": 225,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 3
+    },
+    {
+      "position": 226,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 0
+    },
+    {
+      "position": 227,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 5
+    },
+    {
+      "position": 228,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 0
+    },
+    {
+      "position": 229,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 6
+    },
+    {
+      "position": 230,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 3
+    },
+    {
+      "position": 231,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 6
+    },
+    {
+      "position": 232,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 7
+    },
+    {
+      "position": 233,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 2
+    },
+    {
+      "position": 234,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 8
+    },
+    {
+      "position": 235,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 4
+    },
+    {
+      "position": 236,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 0
+    },
+    {
+      "position": 237,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 6
+    },
+    {
+      "position": 238,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 4
+    },
+    {
+      "position": 239,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 0
+    },
+    {
+      "position": 240,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 5
+    },
+    {
+      "position": 241,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 4
+    },
+    {
+      "position": 242,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 9
+    },
+    {
+      "position": 243,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 7
+    },
+    {
+      "position": 244,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 9
+    },
+    {
+      "position": 245,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 8
+    },
+    {
+      "position": 246,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 0
+    },
+    {
+      "position": 247,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 7
+    },
+    {
+      "position": 248,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 9
+    },
+    {
+      "position": 249,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 2
+    },
+    {
+      "position": 250,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 2
+    },
+    {
+      "position": 251,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 6
+    },
+    {
+      "position": 252,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 8
+    },
+    {
+      "position": 253,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 2
+    },
+    {
+      "position": 254,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 3
+    },
+    {
+      "position": 255,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 8
+    },
+    {
+      "position": 256,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 1
+    },
+    {
+      "position": 257,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 9
+    },
+    {
+      "position": 258,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 4
+    },
+    {
+      "position": 259,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 9
+    },
+    {
+      "position": 260,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 7
+    },
+    {
+      "position": 261,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 2
+    },
+    {
+      "position": 262,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 4
+    },
+    {
+      "position": 263,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 5
+    },
+    {
+      "position": 264,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 7
+    },
+    {
+      "position": 265,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 0
+    },
+    {
+      "position": 266,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 4
+    },
+    {
+      "position": 267,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 9
+    },
+    {
+      "position": 268,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 7
+    },
+    {
+      "position": 269,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 8
+    },
+    {
+      "position": 270,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 7
+    },
+    {
+      "position": 271,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 6
+    },
+    {
+      "position": 272,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 6
+    },
+    {
+      "position": 273,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 8
+    },
+    {
+      "position": 274,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 1
+    },
+    {
+      "position": 275,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 1
+    },
+    {
+      "position": 276,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 3
+    },
+    {
+      "position": 277,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 9
+    },
+    {
+      "position": 278,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 5
+    },
+    {
+      "position": 279,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 5
+    },
+    {
+      "position": 280,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 8
+    },
+    {
+      "position": 281,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 2
+    },
+    {
+      "position": 282,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 6
+    },
+    {
+      "position": 283,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 9
+    },
+    {
+      "position": 284,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 7
+    },
+    {
+      "position": 285,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 0
+    },
+    {
+      "position": 286,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 6
+    },
+    {
+      "position": 287,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 8
+    },
+    {
+      "position": 288,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 5
+    },
+    {
+      "position": 289,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 2
+    },
+    {
+      "position": 290,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 3
+    },
+    {
+      "position": 291,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 1
+    },
+    {
+      "position": 292,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 3
+    },
+    {
+      "position": 293,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 1
+    },
+    {
+      "position": 294,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 0
+    },
+    {
+      "position": 295,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 2
+    },
+    {
+      "position": 296,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 7
+    },
+    {
+      "position": 297,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 4
+    },
+    {
+      "position": 298,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 1
+    },
+    {
+      "position": 299,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 5
+    },
+    {
+      "position": 300,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 1
+    },
+    {
+      "position": 301,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 3
+    },
+    {
+      "position": 302,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 7
+    },
+    {
+      "position": 303,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 5
+    },
+    {
+      "position": 304,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 2
+    },
+    {
+      "position": 305,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 0
+    },
+    {
+      "position": 306,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 5
+    },
+    {
+      "position": 307,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 7
+    },
+    {
+      "position": 308,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 1
+    },
+    {
+      "position": 309,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 2
+    },
+    {
+      "position": 310,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 9
+    },
+    {
+      "position": 311,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 8
+    },
+    {
+      "position": 312,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 5
+    },
+    {
+      "position": 313,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 6
+    },
+    {
+      "position": 314,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 8
+    },
+    {
+      "position": 315,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 1
+    },
+    {
+      "position": 316,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 6
+    },
+    {
+      "position": 317,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 5
+    },
+    {
+      "position": 318,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 0
+    },
+    {
+      "position": 319,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 4
+    },
+    {
+      "position": 320,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 4
+    }
+  ],
+  "execution_order": [
+    {
+      "position": 1,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 2,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 3,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 4,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 5,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 6,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 7,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 8,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 9,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 10,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 11,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 12,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 13,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 14,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 15,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 16,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 17,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 18,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 19,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 20,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 21,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 22,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 23,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 24,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 25,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 26,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 27,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 28,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 29,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 30,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 31,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 32,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 33,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 34,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 35,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 36,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 37,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 38,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 39,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 40,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 41,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 42,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 43,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 44,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 45,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 46,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 47,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 48,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 49,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 50,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 51,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 52,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 53,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 54,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 55,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 56,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 57,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 58,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 59,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 60,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 61,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 62,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 63,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 64,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 65,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 66,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 67,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 68,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 69,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 70,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 71,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 72,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 73,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 74,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 75,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 76,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 77,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 78,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 79,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 80,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 81,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 82,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 83,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 84,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 85,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 86,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 87,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 88,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 89,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 90,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 91,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 92,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 93,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 94,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 95,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 96,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 97,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 98,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 99,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 100,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 101,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 102,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 103,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 104,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 105,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 106,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 107,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 108,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 109,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 110,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 111,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 112,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 113,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 114,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 115,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 116,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 117,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 118,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 119,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 120,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 121,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 122,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 123,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 124,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 125,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 126,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 127,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 128,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 129,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 130,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 131,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 132,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 133,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 134,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 135,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 136,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 137,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 138,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 139,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 140,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 141,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 142,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 143,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 144,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 145,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 146,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 147,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 148,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 149,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 150,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 151,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 152,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 153,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 154,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 155,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 156,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 157,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 158,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 159,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 160,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 161,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 162,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 163,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 164,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 165,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 166,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 167,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 168,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 169,
+      "policy": "linucb_pretrained",
+      "scenario": "adversarial",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 170,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 171,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 172,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 173,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 174,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 175,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 176,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 177,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 178,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 179,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 180,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 181,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 182,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 183,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 184,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 185,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 186,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 187,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 188,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 189,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 190,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 191,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 192,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 193,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 194,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 195,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 196,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 197,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 198,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 199,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 200,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 201,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 202,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 203,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 204,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 205,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 206,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 207,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 208,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 209,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 210,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 211,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 212,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 213,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 214,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 215,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 216,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 217,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 218,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 219,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 220,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 221,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 222,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 223,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 224,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 225,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 226,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 227,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 228,
+      "policy": "linucb",
+      "scenario": "ramp",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 229,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 230,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 231,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 232,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 233,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 234,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 235,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 236,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 237,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 238,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 239,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 240,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 241,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 242,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 243,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 244,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 245,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 246,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 247,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 248,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 249,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 250,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 251,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 252,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 253,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 254,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 255,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 256,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 257,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 258,
+      "policy": "epsilon_greedy",
+      "scenario": "adversarial",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 259,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 260,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "adversarial",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 261,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 262,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 263,
+      "policy": "epsilon_greedy",
+      "scenario": "burst",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 264,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 265,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 266,
+      "policy": "oracle",
+      "scenario": "burst",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 267,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 268,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 269,
+      "policy": "threshold",
+      "scenario": "adversarial",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 270,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 271,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 272,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 273,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 274,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 275,
+      "policy": "threshold",
+      "scenario": "ramp",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 276,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "sawtooth",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 277,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 278,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 279,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 280,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 281,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 282,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 283,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 9,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 284,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 285,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 286,
+      "policy": "static_safe",
+      "scenario": "ramp",
+      "seed": 6,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 287,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "burst",
+      "seed": 8,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 288,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 289,
+      "policy": "linucb_pretrained",
+      "scenario": "ramp",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 290,
+      "policy": "oracle",
+      "scenario": "ramp",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 291,
+      "policy": "oracle",
+      "scenario": "sawtooth",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 292,
+      "policy": "threshold",
+      "scenario": "burst",
+      "seed": 3,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 293,
+      "policy": "linucb",
+      "scenario": "adversarial",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 294,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 0,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 295,
+      "policy": "linucb_pretrained",
+      "scenario": "sawtooth",
+      "seed": 2,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 296,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 7,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 297,
+      "policy": "static_equal",
+      "scenario": "burst",
+      "seed": 4,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 298,
+      "policy": "linucb",
+      "scenario": "burst",
+      "seed": 1,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 299,
+      "policy": "epsilon_greedy",
+      "scenario": "ramp",
+      "seed": 5,
+      "wall_seconds": null,
+      "skipped_existing": true
+    },
+    {
+      "position": 300,
+      "policy": "epsilon_greedy_pretrained",
+      "scenario": "ramp",
+      "seed": 1,
+      "wall_seconds": 9.22792673110962,
+      "skipped_existing": false
+    },
+    {
+      "position": 301,
+      "policy": "static_safe",
+      "scenario": "adversarial",
+      "seed": 3,
+      "wall_seconds": 1.2211322784423828,
+      "skipped_existing": false
+    },
+    {
+      "position": 302,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 7,
+      "wall_seconds": 1.1418898105621338,
+      "skipped_existing": false
+    },
+    {
+      "position": 303,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 5,
+      "wall_seconds": 1.2716326713562012,
+      "skipped_existing": false
+    },
+    {
+      "position": 304,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 2,
+      "wall_seconds": 1.1524362564086914,
+      "skipped_existing": false
+    },
+    {
+      "position": 305,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 0,
+      "wall_seconds": 8.680980205535889,
+      "skipped_existing": false
+    },
+    {
+      "position": 306,
+      "policy": "oracle",
+      "scenario": "adversarial",
+      "seed": 5,
+      "wall_seconds": 8.854501485824585,
+      "skipped_existing": false
+    },
+    {
+      "position": 307,
+      "policy": "static_equal",
+      "scenario": "sawtooth",
+      "seed": 7,
+      "wall_seconds": 1.2702867984771729,
+      "skipped_existing": false
+    },
+    {
+      "position": 308,
+      "policy": "threshold",
+      "scenario": "sawtooth",
+      "seed": 1,
+      "wall_seconds": 1.599653720855713,
+      "skipped_existing": false
+    },
+    {
+      "position": 309,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 2,
+      "wall_seconds": 1.282334327697754,
+      "skipped_existing": false
+    },
+    {
+      "position": 310,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 9,
+      "wall_seconds": 1.33213472366333,
+      "skipped_existing": false
+    },
+    {
+      "position": 311,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 8,
+      "wall_seconds": 1.2815592288970947,
+      "skipped_existing": false
+    },
+    {
+      "position": 312,
+      "policy": "epsilon_greedy",
+      "scenario": "sawtooth",
+      "seed": 5,
+      "wall_seconds": 1.554265022277832,
+      "skipped_existing": false
+    },
+    {
+      "position": 313,
+      "policy": "static_equal",
+      "scenario": "adversarial",
+      "seed": 6,
+      "wall_seconds": 1.3177518844604492,
+      "skipped_existing": false
+    },
+    {
+      "position": 314,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 8,
+      "wall_seconds": 8.699276685714722,
+      "skipped_existing": false
+    },
+    {
+      "position": 315,
+      "policy": "linucb_pretrained",
+      "scenario": "burst",
+      "seed": 1,
+      "wall_seconds": 8.705324411392212,
+      "skipped_existing": false
+    },
+    {
+      "position": 316,
+      "policy": "static_equal",
+      "scenario": "ramp",
+      "seed": 6,
+      "wall_seconds": 1.3643014430999756,
+      "skipped_existing": false
+    },
+    {
+      "position": 317,
+      "policy": "static_safe",
+      "scenario": "sawtooth",
+      "seed": 5,
+      "wall_seconds": 1.1577115058898926,
+      "skipped_existing": false
+    },
+    {
+      "position": 318,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 0,
+      "wall_seconds": 1.1500945091247559,
+      "skipped_existing": false
+    },
+    {
+      "position": 319,
+      "policy": "linucb",
+      "scenario": "sawtooth",
+      "seed": 4,
+      "wall_seconds": 1.5520970821380615,
+      "skipped_existing": false
+    },
+    {
+      "position": 320,
+      "policy": "static_safe",
+      "scenario": "burst",
+      "seed": 4,
+      "wall_seconds": 1.1375386714935303,
+      "skipped_existing": false
+    }
+  ]
+}

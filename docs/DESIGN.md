@@ -4,7 +4,10 @@ Design decisions, with the reasoning and the limitations. Every number in this f
 presented as a measurement was produced by code in this repository that actually ran; anything
 not yet measured says `TBD`.
 
-Status: Week 1a complete. Nothing here has been validated against real Mininet or Open vSwitch.
+Status: simulator track complete, 320-run suite in docs/EXPERIMENTS.md. **Nothing here has ever
+been validated against real Mininet or Open vSwitch, and now never will be within this project:
+the testbed track was not built.** Every reference below to "Week 1b" describes work that did not
+happen; the sentences are kept rather than deleted so the unmet dependency stays visible.
 
 ---
 
@@ -87,9 +90,11 @@ testable by `tests/test_sim_backend.py::test_excess_sharing_mode_decides_whether
 which asserts that `demand_proportional` is strictly worse for URLLC than `equal` at the same
 action.
 
-**Week 1b runs the identical trace through `OvsCliBackend` and compares all three modes against
-it.** If real OVS behaves like `equal`, the honest finding is that this control problem does not
-exist at this operating point, and that is what the report will say.
+**This was to be settled by running the identical trace through `OvsCliBackend` and comparing all
+three modes against it. THAT EXPERIMENT WAS NEVER RUN.** If real OVS behaves like `equal`, this
+control problem does not exist at this operating point and every result in
+`docs/EXPERIMENTS.md` is a study of an artefact. Nothing in this project rules that out. It is
+the single largest threat to validity and `docs/REPORT_OUTLINE.md` section 8 states it as such.
 
 ### A property of this model worth knowing about: URLLC self-stabilises
 
@@ -137,9 +142,10 @@ different sides of it and the SLA constrains something real.
 **The testbed SLO will be different, and sim and testbed SLA violation rates are not comparable
 until both are derived the same way.** On real Mininet, scheduler jitter alone is milliseconds,
 so the achievable range there is unknown and the deck's 15 ms may well be correct.
-`experiments/measure_noise_floor.py` (Week 1b) measures the idle RTT distribution over 60 s and
-reports p50/p95/p99, and the testbed SLO is derived from that. Until then the testbed threshold
-is `TBD`.
+`experiments/measure_noise_floor.py` was to measure the idle RTT distribution over 60 s and derive
+the testbed SLO from it. **It was never written and never run.** The testbed threshold is
+therefore not `TBD` in the sense of "pending"; it is absent, and the SLO used throughout is the
+simulator-derived one above.
 
 The contextual structure the project depends on does exist. Measured on `sawtooth.yaml`, seed 0,
 at the most aggressive action level, URLLC p95 is 4.09 ms when URLLC's offered load is light and
@@ -216,10 +222,10 @@ far more than its cap allows (for example 9.5 Mbps offered into a 3.5 Mbps cap).
 cap reduces those drops. So `w_drop` is not primarily measuring congestion damage; it acts as a
 **second throughput incentive** pushing the cap upward, opposing the SLA term.
 
-That tension is legitimate, but the term does not mean what its name suggests. The `w_sla`
-sensitivity study in `docs/EXPERIMENTS.md` must sweep `w_drop` as well, and the report must not
-describe `w_drop` as a congestion penalty without this caveat. Flagged in Week 1a rather than
-discovered in Week 5.
+That tension is legitimate, but the term does not mean what its name suggests. Flagged in week 1a
+rather than discovered in week 5, and acted on: the sensitivity study in `docs/EXPERIMENTS.md`
+sweeps `w_drop` as well as `w_sla` for exactly this reason. The report must not describe `w_drop`
+as a congestion penalty without this caveat.
 
 ---
 

@@ -41,11 +41,15 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
 from agent.context import FEATURE_NAMES, ContextBuilder  # noqa: E402
 from agent.guardrail import Guardrail  # noqa: E402
+from agent.policies.bandit_policy import EpsilonGreedyPolicy, LinUCBPolicy  # noqa: E402
 from agent.policies.base import all_allowed  # noqa: E402
-from agent.policies.static import StaticEqual, StaticSafe  # noqa: E402
+from agent.policies.oracle import Oracle  # noqa: E402
+from agent.policies.static import StaticEqual, StaticSafe, _FixedLevel  # noqa: E402
+from agent.policies.threshold import Threshold  # noqa: E402
 from agent.reward import reward_breakdown  # noqa: E402
 from analysis.metrics import (  # noqa: E402
     RUN_COLUMNS,
@@ -57,13 +61,39 @@ from net.backend import allocation_from_level  # noqa: E402
 from net.sim_backend import SimBackend  # noqa: E402
 from traffic.traces import build_trace  # noqa: E402
 
-#: Week 1a ships the two static baselines. Threshold lands in Week 2, the bandits in Week 3,
-#: Oracle in Week 4. Keeping the registry here means adding a policy is a one-line change and
-#: the runner never needs to know what kind of policy it is holding.
+#: The registry. Adding a policy is a one-line change here and the runner never needs to know
+#: what kind of policy it is holding: static, reactive, learned or oracle all go through the
+#: same guardrail and produce the same CSV schema, which is what makes the rows comparable.
 POLICIES = {
     "static_equal": StaticEqual,
     "static_safe": StaticSafe,
+    "threshold": Threshold,
+    "linucb": LinUCBPolicy,
+    "epsilon_greedy": EpsilonGreedyPolicy,
 }
+
+#: Pre-trained ("converged") variants. docs/EXPERIMENTS.md section 1 commits to reporting the
+#: learned policies twice: ONLINE, which learns during the evaluation run and is the honest
+#: deployment number because it includes the cost of exploring, and CONVERGED, which is trained
+#: on held-out seeds first and then evaluated with exploration switched off. Reporting only the
+#: converged number would quietly delete the exploration cost from the headline; reporting only
+#: the online one would understate what the method does once deployed for a while. Both are run
+#: and both go in the table.
+#:
+#: The training seeds are DISJOINT from the evaluation seeds (experiment.train_seeds against
+#: experiment.seeds in config/default.yaml). Training on the seed being evaluated would let the
+#: model memorise the exact trace it is about to be scored on.
+PRETRAINED = {
+    "linucb_pretrained": "linucb",
+    "epsilon_greedy_pretrained": "epsilon_greedy",
+}
+
+#: The Oracle needs its schedule computed from the trace before it can be constructed, so it
+#: cannot go in POLICIES with the others. See agent/policies/oracle.py for what it bounds and,
+#: more importantly, what it does not.
+ORACLE_NAME = "oracle"
+
+ALL_POLICY_NAMES = sorted(set(POLICIES) | set(PRETRAINED) | {ORACLE_NAME})
 
 BACKENDS = ("sim",)  # ovs_cli and ryu land in Week 1b and Week 4
 
@@ -123,6 +153,70 @@ def environment_fingerprint(cfg, extra: Optional[Dict] = None) -> Dict:
 # --------------------------------------------------------------------------- the run loop
 
 
+def compute_oracle_schedule(cfg, scenario: str, seed: int, backend_name: str = "sim"):
+    """Probe every level held fixed for a whole run, then pick the best level per phase.
+
+    Returns (schedule, step_phase). One probe run per action level, at the SAME seed as the run
+    being bounded, because the Oracle is allowed to know this trace: that is what makes it an
+    upper bound rather than a policy.
+
+    The per-phase winner is chosen on MEAN reward over the steps of that phase, warm-up excluded,
+    so a long phase does not outvote a short one merely by being long.
+
+    The resulting schedule is returned, not scored. Adding up each phase's best probe score would
+    produce a number no schedule can achieve, because backlog crosses phase boundaries. The
+    caller runs the assembled schedule and reports what it measures. See agent/policies/oracle.py.
+    """
+    n_actions = len(cfg.action.embb_levels)
+    trace = build_trace(cfg, seed)
+    step_phase = trace.step_phase_id()
+
+    per_level_rewards = []
+    for level in range(n_actions):
+        probe = _FixedLevel(cfg, level, f"oracle_probe_{level}")
+        _, _, df = run_once(
+            policy_name=f"oracle_probe_{level}",
+            scenario=scenario,
+            seed=seed,
+            cfg=cfg,
+            backend_name=backend_name,
+            write=False,
+            policy=probe,
+            learn=False,
+        )
+        d = df.loc[df["warmup"] == 0]
+        per_level_rewards.append(d.groupby("phase_id")["reward"].mean())
+
+    table = pd.concat(per_level_rewards, axis=1)      # rows: phase_id, columns: level
+    table.columns = range(n_actions)
+    # idxmax breaks ties toward the first column, which is the lowest (safest) level. Same
+    # convention as the guardrail and the bandits.
+    schedule = {int(phase): int(row.idxmax()) for phase, row in table.iterrows()}
+    return schedule, step_phase
+
+
+def pretrain(policy, cfg, scenario: str, seeds, backend_name: str = "sim") -> None:
+    """Run `policy` through complete runs on `seeds`, learning, then freeze it.
+
+    Training uses the guardrail and the same reward as evaluation, because a model trained in
+    an environment the deployed one does not have would be learning the wrong problem. The
+    training runs write nothing: they are not results, and a directory of training logs
+    indistinguishable from evaluation logs is how a training run ends up averaged into a
+    results table.
+    """
+    for train_seed in seeds:
+        run_once(
+            policy_name=policy.name,
+            scenario=scenario,
+            seed=int(train_seed),
+            cfg=cfg,
+            backend_name=backend_name,
+            write=False,
+            policy=policy,
+        )
+    policy.freeze()
+
+
 def run_once(
     policy_name: str,
     scenario: str,
@@ -132,10 +226,18 @@ def run_once(
     backend_name: str = "sim",
     write: bool = True,
     overrides: Optional[Dict] = None,
+    policy=None,
+    learn: bool = True,
 ):
-    """Execute one run and return (csv_path, RunMetrics, rows)."""
-    if policy_name not in POLICIES:
-        raise KeyError(f"unknown policy {policy_name!r}; known: {sorted(POLICIES)}")
+    """Execute one run and return (csv_path, RunMetrics, rows).
+
+    `policy` lets a caller supply an already-constructed (and possibly already-trained) policy
+    instead of building a fresh one. It is how pretrain() reuses this loop for its training
+    runs, and it is the reason this function does NOT reset a policy it was handed: resetting
+    would erase exactly the state the caller spent nine runs accumulating.
+    """
+    if policy is None and policy_name not in ALL_POLICY_NAMES:
+        raise KeyError(f"unknown policy {policy_name!r}; known: {ALL_POLICY_NAMES}")
     if backend_name not in BACKENDS:
         raise KeyError(f"unknown backend {backend_name!r}; available now: {BACKENDS}")
 
@@ -145,8 +247,31 @@ def run_once(
     trace = build_trace(cfg, seed)
     backend = SimBackend(cfg, trace)
 
-    policy = POLICIES[policy_name](cfg)
-    policy.reset(seed)
+    if policy is None:
+        if policy_name in PRETRAINED:
+            base = PRETRAINED[policy_name]
+            policy = POLICIES[base](cfg)
+            policy.reset(seed)
+            pretrain(
+                policy,
+                cfg=cfg,
+                scenario=scenario,
+                seeds=list(cfg.experiment.train_seeds),
+                backend_name=backend_name,
+            )
+            # The evaluation run must not keep learning, or "converged" would describe a model
+            # that changed throughout the very run being reported.
+            learn = False
+        elif policy_name == ORACLE_NAME:
+            schedule, step_phase_for_oracle = compute_oracle_schedule(
+                cfg, scenario=scenario, seed=seed, backend_name=backend_name
+            )
+            policy = Oracle(cfg, schedule=schedule, step_phase=step_phase_for_oracle)
+            policy.reset(seed)
+            learn = False
+        else:
+            policy = POLICIES[policy_name](cfg)
+            policy.reset(seed)
     guardrail = Guardrail(cfg)
     ctx_builder = ContextBuilder(cfg)
 
@@ -176,7 +301,8 @@ def run_once(
 
         tel = backend.read_telemetry()
         rb = reward_breakdown(tel, cfg)
-        policy.update(ctx, decision.applied_action, rb.total)
+        if learn:
+            policy.update(ctx, decision.applied_action, rb.total)
 
         rows.append(
             {
@@ -274,7 +400,7 @@ def run_once(
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Run one (policy, scenario, seed) experiment.")
-    ap.add_argument("--policy", required=True, choices=sorted(POLICIES))
+    ap.add_argument("--policy", required=True, choices=ALL_POLICY_NAMES)
     ap.add_argument("--scenario", required=True, choices=list_scenarios())
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--backend", default="sim", choices=BACKENDS)

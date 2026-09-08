@@ -76,6 +76,57 @@ guardrail:
   safe_ceiling_index: 2     # highest level index still allowed while in the warn band
   holddown_steps: 3         # steps clamped to floor_index after a hard override
 
+policy:
+  # Per-policy tuning. These are DESIGN CHOICES, not measurements. Where a number is derived
+  # from a measured table the derivation is written out so it can be checked.
+  threshold:
+    # Reactive latency controller. It watches the SMOOTHED latency only (rtt_ewma_ms), never
+    # the instantaneous tail. That is deliberate and it is the whole point of having this
+    # baseline: agent/context.py exposes both a smoothed and an instantaneous feature, and the
+    # gap between them is the only mechanism by which a learned policy can react faster than a
+    # threshold. If Threshold were also given the fast signal there would be nothing left for
+    # LinUCB to exploit and the comparison would be uninformative.
+    #
+    # up_ms sits at the SLA target, not at guardrail.warn_ms. Setting it to warn_ms would mean
+    # the policy and the guardrail always fire on the same step, and the guardrail intervention
+    # rate would then measure nothing: the policy would already have moved. Separating them
+    # gives the two layers distinct jobs - the policy aims at the target, the guardrail defends
+    # the hard limit - and makes the intervention rate a real number.
+    up_ms: 5.0      # == sla.target_ms; above this, step down one level
+    down_ms: 3.0    # below this, step up one level. Measured p95 at level 0.35 is 3.39 ms, so
+                    # the band is wide enough that the controller settles instead of chattering.
+    step: 1         # levels moved per decision
+
+  linucb:
+    # Confidence width. TUNED IN SIM, not derived. The textbook value
+    # alpha = 1 + sqrt(ln(2/delta)/2) is stated for rewards in [0, 1]; this project's reward is
+    # bounded above by about 0.94 but unbounded below, because the SLA hinge grows without
+    # limit, so that bound does not apply here. Quoting it would be quoting a guarantee we do
+    # not have. The sweep that produced this value is in docs/EXPERIMENTS.md section 2.
+    #
+    # Selected by experiments/tune.py on experiment.train_seeds (disjoint from the evaluation
+    # seeds). 0.5 was the argmax of mean reward, but 0.25, 0.5 and 1.0 have overlapping 95 %
+    # intervals and nothing in the data separates them. Read this as "somewhere around 0.5",
+    # not as a tuned optimum.
+    alpha: 0.50
+    # Ridge term. A = ridge*I at the start, so this sets how wide the initial confidence
+    # interval is and therefore how fast the first few steps explore.
+    ridge: 1.0
+
+  epsilon_greedy:
+    # CONTEXT-FREE on purpose. This is the ablation that isolates whether the context vector is
+    # worth anything: if LinUCB cannot beat a bandit that ignores the features entirely, the
+    # honest finding is that the problem is not contextual at this operating point.
+    # See agent/bandit.py.
+    #
+    # 0.0 was the argmax of mean reward in the sweep, and no value in [0, 0.2] separated from
+    # any other. Taking the argmax literally is the rule experiments/tune.py states up front,
+    # and here it also selects the STRONGEST version of this baseline, which is the version our
+    # method should have to beat. At epsilon = 0 the policy still tries every arm once before
+    # exploiting, so it is greedy over arm means rather than locked to whichever arm it happened
+    # to sample first. The report must call it what it is rather than implying it explores.
+    epsilon: 0.0
+
 reward:
   # r = w_tput*norm(embb) + w_be*norm(be)
   #     - w_sla*max(0, rtt - target)/target - w_viol*1[rtt > hard] - w_drop*norm(drops)
@@ -116,4 +167,12 @@ sim:
 
 experiment:
   seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  # Seeds used ONLY for training: hyperparameter tuning (experiments/tune.py) and pre-training
+  # the converged bandit variants. Deliberately disjoint from
+  # `seeds` above. A model pre-trained on the seed it is then evaluated on has seen that exact
+  # offered-load trace bit for bit (traffic/traces.py derives the trace from the seed alone), so
+  # its "converged" score would be a memorisation result. Five is enough to move LinUCB well
+  # past its initial exploration phase at 300 steps per run, and keeps the converged variants at
+  # six times the cost of an online run rather than eleven.
+  train_seeds: [100, 101, 102, 103, 104]
   results_dir: results/raw
