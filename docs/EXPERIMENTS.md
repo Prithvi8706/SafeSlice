@@ -8,8 +8,8 @@ vSwitch, because the testbed track was not built (`docs/PLAN.md` status note). I
 assumption is described in `docs/DESIGN.md` section 2. Do not quote anything here as a testbed
 result.
 
-Status: full suite complete. 8 policies x 4 scenarios x 10 seeds = 320 runs, plus 280 tuning runs
-and 720 sensitivity runs.
+Status: complete. 8 policies x 4 scenarios x 10 seeds = 320 evaluation runs, plus 280 tuning runs
+and 900 sensitivity runs. 1,500 runs in total.
 
 ---
 
@@ -310,71 +310,97 @@ precise cost figure, for the reason in section 1.
 
 ## 8. Reward-weight sensitivity
 
-720 runs: `w_sla` in {0.25, 0.5, 1.0, 2.0, 4.0} x `w_drop` in {0.0, 0.5, 1.0} x 4 policies x
-4 scenarios x 3 training seeds. Reduced from the full grid (3 seeds not 5, 3 `w_drop` values not
-4) to keep the study inside one machine-hour; stated because it makes these intervals wider than
-those in section 4, not because it changes the conclusion.
+900 runs: `w_sla` in {0.25, 0.5, 1.0, 2.0, 4.0} x `w_drop` in {0.0, 0.5, 1.0} x 5 policies x
+4 scenarios x 3 training seeds. 3 seeds rather than 10 to keep the study inside a machine-hour,
+which makes these intervals wider than those in section 4.
 
 **Rewards from different cells are not comparable.** Changing a weight changes the units of the
 reward. Only two things are read across cells: the ordering of policies within a cell, and the
 physical metrics, which are in milliseconds and Mbps and mean the same thing regardless.
 
-### The ordering is NOT stable, and that is the finding
+### The headline result IS robust to the reward weights
 
-| `w_sla` | `w_drop` | ordering, best first |
-|---|---|---|
-| 0.25 | 0.0 / 0.5 / 1.0 | threshold > linucb > static_equal > static_safe |
-| 0.50 | 0.0 / 0.5 / 1.0 | threshold > linucb > static_equal > static_safe |
-| 1.00 | 0.0 / 0.5 / 1.0 | threshold > linucb > static_equal > static_safe |
-| 2.00 | 0.0 | **static_equal** > linucb > threshold > static_safe |
-| 2.00 | 0.5 / 1.0 | threshold > linucb > static_equal > static_safe |
-| 4.00 | 0.0 | **static_equal** > linucb > threshold > static_safe |
-| 4.00 | 0.5 | **static_equal** > linucb > threshold > static_safe |
-| 4.00 | 1.0 | **linucb** > threshold > static_equal > static_safe |
+An earlier version of this study swept only the four non-converged policies, and reported that the
+ranking was unstable. That was a real gap, and it is now closed: `linucb_pretrained` — the policy
+that wins section 3 — was added to the sweep, and it **wins in all 15 cells**.
 
-Three different policies win somewhere in this sweep. **Which policy looks best therefore depends
-on reward weights that a human chose, and the report is required to say so rather than quote the
-`w_sla = 1.0` column as though it were the answer.** The direction is at least intelligible: as
-the SLA penalty grows, the conservative static split overtakes the aggressive reactive
-controller, which is what you would expect and is a weak check that the reward is behaving
+Because "wins in all 15" is a directional claim until it is tested, each cell was checked with a
+paired interval over its 12 (scenario, seed) pairs against that cell's runner-up:
+
+| `w_sla` | `w_drop` | runner-up | mean delta | 95% interval | separated |
+|---|---|---|---|---|---|
+| 0.25 | 0.0 | threshold | +0.0125 | [−0.0068, +0.0319] | no |
+| 0.25 | 0.5 | threshold | +0.0126 | [−0.0089, +0.0340] | no |
+| 0.25 | 1.0 | threshold | +0.0309 | [+0.0175, +0.0442] | **yes** |
+| 0.50 | 0.0 | threshold | +0.0226 | [+0.0099, +0.0353] | **yes** |
+| 0.50 | 0.5 | threshold | +0.0250 | [+0.0120, +0.0380] | **yes** |
+| 0.50 | 1.0 | threshold | +0.0316 | [+0.0177, +0.0454] | **yes** |
+| 1.00 | 0.0 | threshold | +0.0223 | [+0.0062, +0.0384] | **yes** |
+| 1.00 | 0.5 | threshold | +0.0215 | [+0.0030, +0.0400] | **yes** |
+| 1.00 | 1.0 | threshold | +0.0327 | [+0.0191, +0.0463] | **yes** |
+| 2.00 | 0.0 | static_equal | +0.0303 | [+0.0184, +0.0422] | **yes** |
+| 2.00 | 0.5 | threshold | +0.0317 | [+0.0148, +0.0487] | **yes** |
+| 2.00 | 1.0 | threshold | +0.0301 | [+0.0099, +0.0502] | **yes** |
+| 4.00 | 0.0 | static_equal | +0.0245 | [+0.0135, +0.0354] | **yes** |
+| 4.00 | 0.5 | static_equal | +0.0458 | [+0.0264, +0.0652] | **yes** |
+| 4.00 | 1.0 | linucb | +0.0581 | [+0.0257, +0.0904] | **yes** |
+
+**Separated from zero in 13 of 15 cells.** The two exceptions are both at `w_sla = 0.25`, the
+weakest SLA penalty, where there is least for a safety-aware policy to win — which is the
+direction you would expect the exception to fall if the effect is real.
+
+### The instability is real, but it is among the OTHER policies
+
+The earlier finding is not withdrawn, it is relocated. Below the winner, the ordering still moves
+with the weights: `threshold` is runner-up at low `w_sla`, `static_equal` takes over at
+`w_sla >= 2.0` with low `w_drop`, and at `w_sla = 4.0, w_drop = 1.0` even online `linucb`
+overtakes both. As the SLA penalty grows the conservative static split overtakes the aggressive
+reactive controller, which is what you would expect and is a weak check that the reward behaves
 sensibly.
 
-### The result that survives the sweep: only the learned policy responds to the weights
+So the correct claim is narrow and specific: **which of the *baselines* looks second-best depends
+on the reward weights; which policy looks best does not.**
+
+### Only the learned policies respond to the weights at all
 
 Averaged over `w_drop`, scenarios and seeds:
 
 | SLA violation rate | w_sla 0.25 | 0.50 | 1.00 | 2.00 | 4.00 |
 |---|---|---|---|---|---|
-| `linucb` | 1.51 % | 1.46 % | 1.35 % | 1.17 % | **0.88 %** |
+| `linucb_pretrained` | 0.70 % | 0.74 % | 0.64 % | 0.66 % | **0.37 %** |
+| `linucb` | 1.51 % | 1.46 % | 1.35 % | 1.17 % | 0.88 % |
 | `threshold` | 1.54 % | 1.54 % | 1.54 % | 1.54 % | 1.54 % |
 | `static_equal` | 0.00 % | 0.00 % | 0.00 % | 0.00 % | 0.00 % |
 
 | eMBB goodput (Mbps) | w_sla 0.25 | 0.50 | 1.00 | 2.00 | 4.00 |
 |---|---|---|---|---|---|
-| `linucb` | 3.524 | 3.519 | 3.473 | 3.419 | **3.315** |
+| `linucb_pretrained` | 3.634 | 3.719 | 3.596 | 3.561 | 3.349 |
+| `linucb` | 3.524 | 3.519 | 3.473 | 3.419 | 3.315 |
 | `threshold` | 3.655 | 3.655 | 3.655 | 3.655 | 3.655 |
 | `static_equal` | 2.990 | 2.990 | 2.990 | 2.990 | 2.990 |
 
 `threshold` and the static baselines are **numerically invariant** to the reward weights, to every
-digit. That is not a flaw in the experiment; it is what they are. They are fixed rules that do not
+digit. That is not a flaw in the experiment; it is what they are. They are fixed rules that never
 read the reward, so telling them you care more about latency changes nothing they do.
 
-LinUCB is the only policy here that moves: raise `w_sla` sixteen-fold and it gives up 0.21 Mbps of
-eMBB goodput and cuts its violation rate by 42 %, without anyone re-tuning it. **That is the
-argument for a learned policy that this study actually supports** — not "it scores higher", which
-depends on the weights, but "it is the only one that can be told what to optimise for". A
-deployment whose SLA priorities change does not need a new hand-tuned threshold.
+The comparison at `w_sla = 0.25` is the cleanest single statement of what the method buys:
+`linucb_pretrained` reaches **3.634 Mbps at a 0.70 % violation rate** against `threshold`'s
+**3.655 Mbps at 1.54 %** — within 0.6 % of the same throughput for **less than half** the SLA
+violations. And raising `w_sla` sixteen-fold cuts its violation rate to 0.37 % with no re-tuning,
+while `threshold` cannot be told to care.
 
 ### Limits of this study
 
-- It sweeps **online** LinUCB only. The converged variant, which is the one that wins in section 3,
-  was left out because each cell would cost six runs. So the sensitivity of the *headline* result
-  to the reward weights is **untested**, and that is a real gap.
-- Three seeds per cell, so cell-level differences are noisier than section 4's.
+- **The converged variant consumes 5 extra training runs per evaluation.** Against `threshold`
+  this is not a like-for-like data budget, and the comparison should be read as "a model trained
+  offline beats a hand-tuned rule", not "learning is free". `threshold` also had human input — its
+  thresholds were chosen against the measured latency-by-level table — but that is one-off human
+  effort, not per-deployment compute.
+- Three seeds per cell, so cell-level intervals are wider than section 4's.
 - `w_tput`, `w_be` and `w_viol` were held fixed. Only the two weights identified in
   `docs/DESIGN.md` section 5 as suspect were swept.
-
----
+- `epsilon_greedy` and `oracle` are not in the sweep; each cell would have cost six further runs
+  and neither changes the question this study asks.
 
 ## 9. Simulator versus real testbed
 

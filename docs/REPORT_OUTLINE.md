@@ -16,10 +16,11 @@ to a hand-tuned reactive threshold on three of four scenarios**; the same algori
 held-out seeds and frozen beats that threshold on three of four, with fewer SLA violations, and
 essentially closes the gap to the best phase-static allocation on two. The entire difference
 between those two rows is the cost of exploring online. A context-free bandit does substantially
-worse than either, so the context vector is carrying real information. Decisions cost roughly four
-times an array lookup and stay under a quarter of a millisecond against a one-second control
-interval. Whether any of this transfers to real Open vSwitch is **untested** — the testbed was
-never built.
+worse than either, so the context vector is carrying real information. A 900-run sweep over the
+reward weights finds the converged policy wins all 15 weight combinations, separated in 13, so the
+result is not an artefact of how the reward was weighted. Decisions cost roughly four times an
+array lookup and stay under a quarter of a millisecond against a one-second control interval.
+Whether any of this transfers to real Open vSwitch is **untested** — the testbed was never built.
 
 ---
 
@@ -35,9 +36,9 @@ never built.
 4. **Experimental protocol.** Determinism, seeds, warm-up, paired comparison, randomized run
    order, held-out tuning and training seeds.
 5. **Results.** `docs/EXPERIMENTS.md` sections 3 to 6.
-6. **Sensitivity.** Whether the ordering of policies survives changes to the reward weights. It
-   does not: three policies win somewhere in the sweep. What does survive is that only the
-   learned policy responds to the weights at all.
+6. **Sensitivity.** Whether the ordering survives changes to the reward weights. The winner does:
+   `linucb_pretrained` takes all 15 cells, separated in 13. Which baseline ranks *second* does
+   not, and only the learned policies respond to the weights at all.
 7. **Limitations.** Section 8 below, in full, not compressed to a sentence.
 
 ---
@@ -102,13 +103,16 @@ This list exists because each of these is a sentence that would be easy to write
   leftover capacity is shared. `docs/DESIGN.md` section 2.
 - **"LinUCB is better than DRL for this problem."** No DRL baseline was implemented. The
   comparison in the literature survey is a citation, not a measurement.
-- **"Policy X is the best."** Unqualified, this is not supportable. The reward-weight sweep puts
-  three different policies in first place depending on `w_sla` and `w_drop`
-  (`docs/EXPERIMENTS.md` section 8). Any ranking claim must name the weights it holds under.
-- **"The sensitivity study shows the headline result is robust."** It does not test the headline
-  result. It sweeps *online* LinUCB; the converged variant, which is the one that wins in
-  section 3, was not included. The robustness of the actual headline to the reward weights is
-  untested.
+- **"Policy X is the best, full stop."** Say which policy and under what conditions. The
+  converged variant does win every cell of the reward-weight sweep, but *online* LinUCB does not
+  beat `threshold` on most scenarios, and which baseline ranks second moves with the weights.
+- **"The method wins regardless of how you weight the reward."** Nearly true and worth stating
+  precisely rather than loosely: `linucb_pretrained` wins all 15 cells but is statistically
+  separated in 13, the two exceptions being at the lowest SLA penalty
+  (`docs/EXPERIMENTS.md` section 8).
+- **"Learning is free."** The converged variant consumes five extra training runs per evaluation.
+  The comparison against `threshold` is "a model trained offline beats a hand-tuned rule", not a
+  like-for-like data budget.
 
 ---
 
@@ -181,9 +185,9 @@ leaving a stale number behind.
 4. **The scenarios are hand-written**, and `adversarial.yaml` in particular was designed against
    the guardrail's known weakness. It is a stress test, not a traffic model.
 5. **Single operating point.** One capacity, one set of min-rate guarantees, one control interval.
-6. **The reward weights decide the ranking.** `docs/EXPERIMENTS.md` section 8. The `w_sla = 1.0`
-   column used throughout section 4 is a choice, and a different defensible choice reorders the
-   podium.
+6. **The reward weights reorder the baselines** but not the winner. `docs/EXPERIMENTS.md`
+   section 8. The `w_sla = 1.0` column used throughout section 4 is a choice; a different
+   defensible choice changes which baseline ranks second.
 
 ---
 

@@ -67,13 +67,28 @@ acts on the previous interval's telemetry, so it cannot prevent the first interv
 has not yet seen. What it guarantees is narrower and provable: the applied action is always inside
 the allowed mask, whatever the policy asks for.
 
-A 720-run sweep over the reward weights shows the ranking is **not stable**: three different
-policies take first place depending on `w_sla` and `w_drop`, so no unqualified "policy X is best"
-claim is supportable. What does survive the sweep is more interesting than a ranking — LinUCB is
-the *only* policy whose behaviour responds to the weights at all. Raise the SLA penalty sixteen-
-fold and it gives up 0.21 Mbps of goodput and cuts violations by 42 % on its own; `threshold` and
-the static baselines are invariant to every digit, because they are fixed rules that never read
-the reward.
+Two design decisions were argued from first principles before any data existed, and the
+measurements confirmed both. Watching the instantaneous latency tail as well as the smoothed one
+caught **38.3 %** of escalations an EWMA-only guardrail would have missed. And the `adversarial`
+scenario, built to lure policies high then strike faster than the EWMA settles, put **all 562** of
+its violations inside a strike and none in a calm phase — with the context-free bandit caught
+30.4 % of the time against converged LinUCB's 12.5 % on identical traffic.
+
+A 900-run sweep over the reward weights finds that conclusion robust: `linucb_pretrained` wins
+**all 15** weight combinations, and the win is statistically separated in **13 of 15** (both
+exceptions at the weakest SLA penalty, where there is least for a safety-aware policy to win).
+Which *baseline* ranks second does move with the weights, so "policy X is best" still needs
+qualifying — but the winner does not change.
+
+The sharpest single comparison, at `w_sla = 0.25`: converged LinUCB reaches **3.634 Mbps at a
+0.70 % violation rate** against `threshold`'s **3.655 Mbps at 1.54 %** — within 0.6 % of the same
+throughput for less than half the SLA violations. And only the learned policies respond to the
+weights at all: raise the SLA penalty sixteen-fold and LinUCB cuts its violation rate to 0.37 %
+with no re-tuning, while `threshold` and the static baselines are invariant to every digit,
+because they are fixed rules that never read the reward.
+
+One caveat kept in view: the converged variant consumes five extra training runs per evaluation,
+so this reads as "a model trained offline beats a hand-tuned rule", not "learning is free".
 
 Full numbers, including what each of these is not allowed to be read as, in
 `docs/EXPERIMENTS.md` and `docs/REPORT_OUTLINE.md`.
@@ -152,6 +167,8 @@ results/summary/   seed-averaged tables and figures, all regenerable
 
 ## Documentation
 
+- **`docs/REPORT.md` — the write-up: abstract, method, results, limitations, conclusion.**
+- `docs/DECK_REVISIONS.md` — slide-by-slide reconciliation of the proposal deck with what was built.
 - `docs/DESIGN.md` — the design decisions, each with the reasoning and the limitation.
 - `docs/EXPERIMENTS.md` — the protocol, the metric definitions, and the results tables.
 - `docs/REPORT_OUTLINE.md` — what the write-up says, and the claims it is not allowed to make.
