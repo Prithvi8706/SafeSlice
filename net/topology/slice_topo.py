@@ -1,0 +1,431 @@
+"""Mininet topology and Open vSwitch QoS for the three-slice bottleneck.
+
+    h1,h2,h3 --- s1 === s2 --- h4,h5,h6
+
+All QoS lives on s1's egress port toward s2. The reverse direction is unshaped, which is why
+`net/sim_backend.py` adds one queueing delay to the RTT rather than two.
+
+TWO THINGS THAT WILL SILENTLY RUIN THE MEASUREMENT IF GOT WRONG
+
+1. Do NOT set `bw` on the s1-s2 link. Mininet's TCLink installs its own HTB qdisc on the
+   interface, and `ovs-vsctl set port ... qos=@newqos` with type=linux-htb installs another one
+   on the same interface. Whichever is applied last wins and the other silently does nothing, so
+   you end up measuring a rate limiter you did not think you were using. The bottleneck here is
+   the OVS QoS `max-rate` on the port, and there is exactly one HTB hierarchy, owned by OVS.
+
+2. OVS QoS and Queue records are NOT garbage collected when a port stops referencing them. They
+   accumulate in the database across runs, and a stale record can be picked up by a later run.
+   `clear_qos()` destroys them explicitly and is called on setup as well as teardown.
+
+Run as root:
+
+    sudo python3 net/topology/slice_topo.py --check    # build, verify, tear down
+    sudo python3 net/topology/slice_topo.py --cli      # build, verify, drop to the Mininet CLI
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from config_loader import load_config  # noqa: E402
+from net.backend import allocation_from_level  # noqa: E402
+
+# Transport ports that identify each slice. Both TCP and UDP are matched on these, because
+# iperf3 runs its control channel over TCP on the same port as its UDP data. Leaving the control
+# channel unmatched would drop it into the default queue, which is q0, and put iperf3 signalling
+# traffic inside the protected URLLC slice.
+SLICE_PORTS = {"urllc": 5201, "embb": 5202, "be": 5203}
+SLICE_QUEUE = {"urllc": 0, "embb": 1, "be": 2}
+
+# h1 -> h4 carries URLLC, h2 -> h5 eMBB, h3 -> h6 Best Effort.
+SLICE_HOSTS = {"urllc": ("h1", "h4"), "embb": ("h2", "h5"), "be": ("h3", "h6")}
+
+
+# --------------------------------------------------------------------------- shell helpers
+
+
+def sh(cmd: List[str], check: bool = True, timeout: int = 30) -> str:
+    """Run a command and return stdout. Raises with both streams on failure."""
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    if check and p.returncode != 0:
+        raise RuntimeError(
+            f"command failed ({p.returncode}): {' '.join(cmd)}\n"
+            f"stdout: {p.stdout.strip()}\nstderr: {p.stderr.strip()}"
+        )
+    return p.stdout
+
+
+# --------------------------------------------------------------------------- QoS programming
+
+
+def clear_qos(iface: Optional[str] = None) -> None:
+    """Remove QoS from a port and destroy every orphaned QoS and Queue record.
+
+    The `--all destroy` calls are the important part. Without them, records leak across runs and
+    a later run can bind a queue configured by an earlier one.
+    """
+    if iface:
+        sh(["ovs-vsctl", "--if-exists", "clear", "port", iface, "qos"], check=False)
+    sh(["ovs-vsctl", "--all", "destroy", "qos"], check=False)
+    sh(["ovs-vsctl", "--all", "destroy", "queue"], check=False)
+
+
+def apply_qos(iface: str, cfg, level_index: int) -> Dict[str, int]:
+    """Create the HTB QoS hierarchy on `iface` with three queues.
+
+    Returns the caps in bits per second that were programmed, so the caller can assert against
+    what it asked for rather than trusting that it landed.
+    """
+    capacity = int(cfg.link.capacity_bps)
+    alloc = allocation_from_level(cfg, level_index)
+
+    min_rates = {
+        "urllc": int(float(cfg.slices.urllc.min_share) * capacity),
+        "embb": int(float(cfg.slices.embb.min_share) * capacity),
+        "be": int(float(cfg.slices.be.min_share) * capacity),
+    }
+    max_rates = {
+        "urllc": int(alloc.urllc_cap_bps),
+        "embb": int(alloc.embb_cap_bps),
+        "be": int(alloc.be_cap_bps),
+    }
+
+    clear_qos(iface)
+
+    cmd = [
+        "ovs-vsctl",
+        "--", "set", "port", iface, "qos=@newqos",
+        "--", "--id=@newqos", "create", "qos", "type=linux-htb",
+        f"other-config:max-rate={capacity}",
+        "queues:0=@q0", "queues:1=@q1", "queues:2=@q2",
+    ]
+    for name, ref in (("urllc", "@q0"), ("embb", "@q1"), ("be", "@q2")):
+        cmd += [
+            "--", f"--id={ref}", "create", "queue",
+            f"other-config:min-rate={min_rates[name]}",
+            f"other-config:max-rate={max_rates[name]}",
+        ]
+    sh(cmd)
+    return max_rates
+
+
+def set_queue_max_rate(queue_index: int, bps: int) -> None:
+    """Change one queue's max-rate in place. This is the actuator the agent drives.
+
+    Looked up by the queue's position in the QoS record's `queues` column rather than by a cached
+    UUID, so a re-created QoS record cannot leave this writing to a dead queue.
+    """
+    qos_uuid = sh(["ovs-vsctl", "--columns=_uuid", "--bare", "list", "qos"]).strip().splitlines()
+    if not qos_uuid:
+        raise RuntimeError("no QoS record exists; apply_qos() has not run")
+    queues = sh(["ovs-vsctl", "get", "qos", qos_uuid[0], "queues"]).strip()
+    # Format: {0=<uuid>, 1=<uuid>, 2=<uuid>}
+    m = re.search(rf"\b{queue_index}\s*=\s*([0-9a-f-]+)", queues)
+    if not m:
+        raise RuntimeError(f"queue {queue_index} not present in QoS queues column: {queues}")
+    sh(["ovs-vsctl", "set", "queue", m.group(1), f"other-config:max-rate={int(bps)}"])
+
+
+# --------------------------------------------------------------------------- flows
+
+
+def install_flows(switch: str = "s1") -> None:
+    """Classify each slice into its queue.
+
+    `set_queue` then `normal` so OVS still does its own L2 learning and forwarding. The switch is
+    created in standalone fail mode, so NORMAL is populated even with no controller attached.
+
+    ICMP goes to q0 deliberately: ping is how URLLC's RTT is measured, so it has to sit in the
+    same queue as the URLLC traffic or it measures a queue nobody is using.
+    """
+    sh(["ovs-ofctl", "-O", "OpenFlow13", "del-flows", switch])
+    flows = []
+    for name, port in SLICE_PORTS.items():
+        q = SLICE_QUEUE[name]
+        flows.append(f"priority=300,udp,tp_dst={port},actions=set_queue:{q},normal")
+        flows.append(f"priority=300,tcp,tp_dst={port},actions=set_queue:{q},normal")
+        flows.append(f"priority=300,tcp,tp_src={port},actions=set_queue:{q},normal")
+    flows.append(f"priority=250,icmp,actions=set_queue:{SLICE_QUEUE['urllc']},normal")
+    flows.append("priority=0,actions=normal")
+    for f in flows:
+        sh(["ovs-ofctl", "-O", "OpenFlow13", "add-flow", switch, f])
+
+
+# --------------------------------------------------------------------------- topology
+
+
+def build_network(cfg):
+    """Construct and start the Mininet network. Imports Mininet lazily so this module can be
+    imported (and unit tested) on a machine that has no Mininet installed."""
+    from mininet.link import TCLink
+    from mininet.net import Mininet
+    from mininet.node import OVSKernelSwitch
+
+    net = Mininet(switch=OVSKernelSwitch, link=TCLink, controller=None, autoSetMacs=True)
+
+    s1 = net.addSwitch("s1", failMode="standalone")
+    s2 = net.addSwitch("s2", failMode="standalone")
+
+    for i in range(1, 7):
+        net.addHost(f"h{i}", ip=f"10.0.0.{i}/24")
+
+    for i in (1, 2, 3):
+        net.addLink(f"h{i}", s1)
+    for i in (4, 5, 6):
+        net.addLink(f"h{i}", s2)
+
+    # No bw= here. See the module docstring. Delay is the one tc parameter that does not fight
+    # with OVS QoS, because netem sits at a different point in the qdisc chain than the HTB root
+    # OVS installs; it is left unset so that the measured base RTT is the testbed's own, which is
+    # what experiments/measure_noise_floor.py is for.
+    net.addLink(s1, s2)
+
+    net.start()
+    return net
+
+
+def bottleneck_iface(net) -> str:
+    """s1's interface facing s2, discovered rather than hard-coded."""
+    links = net["s1"].connectionsTo(net["s2"])
+    if not links:
+        raise RuntimeError("no link between s1 and s2")
+    return links[0][0].name
+
+
+# --------------------------------------------------------------------------- verification
+
+
+def parse_queue_stats(out: str, iface_ofport: Optional[str] = None) -> Dict[int, Dict]:
+    """Parse `ovs-ofctl queue-stats` output. Pure function, unit tested.
+
+    Handles both the OpenFlow 1.0 form and the 1.3 form, which appends a duration field. Keyed
+    by queue id; when `iface_ofport` is given, only that port's queues are returned, which
+    matters because s1 has queues configured on one port and the reply covers all of them.
+    """
+    stats: Dict[int, Dict] = {}
+    for m in re.finditer(
+        r"port\s+(\S+)\s+queue\s+(\d+):\s*bytes=(\d+),\s*pkts=(\d+),\s*errors=(\d+)", out
+    ):
+        port, qid, b, p, e = m.groups()
+        if iface_ofport is not None and port != str(iface_ofport):
+            continue
+        stats[int(qid)] = {"bytes": int(b), "pkts": int(p), "errors": int(e), "port": port}
+    return stats
+
+
+def read_queue_stats(iface_ofport: Optional[str] = None, switch: str = "s1") -> Dict[int, Dict]:
+    out = sh(["ovs-ofctl", "-O", "OpenFlow13", "queue-stats", switch])
+    return parse_queue_stats(out, iface_ofport)
+
+
+def tc_handle_for_queue(queue_index: int) -> str:
+    """The tc class handle Open vSwitch gives to queue `queue_index`.
+
+    OVS's linux-htb implementation creates each queue as class `1:(queue_id + 1)`, reserving
+    `1:fffe` for the default class. This is an OVS implementation detail, not a promise, so
+    `parse_tc_classes` is written to survive the handle not being there and `verify()` asserts
+    the expected handles exist rather than assuming they do.
+    """
+    return f"1:{queue_index + 1}"
+
+
+def parse_tc_classes(out: str) -> Dict[str, Dict]:
+    """Parse `tc -s class show dev <iface>` output. Pure function, unit tested.
+
+    tc is the only source of instantaneous queue BACKLOG. Open vSwitch does not report it:
+    `queue-stats` gives transmitted bytes, packets and errors, not depth. See
+    docs/PLAN_TESTBED.md section 2.2.
+    """
+    classes: Dict[str, Dict] = {}
+    current = None
+    for line in out.splitlines():
+        stripped = line.strip()
+        m = re.match(r"class htb (\S+)", stripped)
+        if m:
+            current = m.group(1)
+            classes[current] = {
+                "rate": None,
+                "ceil": None,
+                "backlog_bytes": None,
+                "sent_bytes": None,
+                "dropped_pkts": None,
+            }
+            r = re.search(r"\brate (\S+)", stripped)
+            c = re.search(r"\bceil (\S+)", stripped)
+            if r:
+                classes[current]["rate"] = r.group(1)
+            if c:
+                classes[current]["ceil"] = c.group(1)
+            continue
+        if current is None:
+            continue
+        # "Sent 12345 bytes 100 pkt (dropped 5, overlimits 0 requeues 0)"
+        s = re.search(r"Sent (\d+) bytes", stripped)
+        if s:
+            classes[current]["sent_bytes"] = int(s.group(1))
+        d = re.search(r"dropped (\d+)", stripped)
+        if d:
+            classes[current]["dropped_pkts"] = int(d.group(1))
+        # "rate 500Kbit 40pps backlog 3000b 2p requeues 0"
+        b = re.search(r"backlog\s+(\d+)b", stripped)
+        if b:
+            classes[current]["backlog_bytes"] = int(b.group(1))
+    return classes
+
+
+def read_tc_classes(iface: str) -> Dict[str, Dict]:
+    """Run tc and parse it. Returns {} if tc is unavailable or the command fails, so the caller
+    can record that it fell back rather than reporting zero backlog as if it were measured."""
+    try:
+        out = sh(["tc", "-s", "class", "show", "dev", iface])
+    except Exception:  # noqa: BLE001
+        return {}
+    return parse_tc_classes(out)
+
+
+def queue_backlog_bytes(iface: str) -> Dict[int, Optional[int]]:
+    """Backlog per slice queue index, or None per queue when it could not be read."""
+    classes = read_tc_classes(iface)
+    out: Dict[int, Optional[int]] = {}
+    for q in (0, 1, 2):
+        entry = classes.get(tc_handle_for_queue(q))
+        out[q] = entry.get("backlog_bytes") if entry else None
+    return out
+
+
+def verify(net, cfg, programmed: Dict[str, int]) -> Tuple[bool, Dict]:
+    """Stage 1 acceptance checks. Returns (all_passed, report)."""
+    iface = bottleneck_iface(net)
+    report: Dict = {"bottleneck_iface": iface, "programmed_max_rates_bps": programmed}
+    ok = True
+
+    # 1. Full connectivity.
+    loss = net.pingAll(timeout="1")
+    report["pingall_loss_pct"] = loss
+    if loss != 0:
+        ok = False
+
+    # 2. Three queues visible to OpenFlow.
+    qstats = read_queue_stats()
+    report["queue_ids_seen"] = sorted(qstats)
+    if not {0, 1, 2}.issubset(set(qstats)):
+        ok = False
+
+    # 3. Three HTB classes visible to tc, and whether backlog is readable.
+    tc_classes = read_tc_classes(iface)
+    report["tc_classes"] = tc_classes
+    report["backlog_readable"] = any(
+        v.get("backlog_bytes") is not None for v in tc_classes.values()
+    )
+    if len(tc_classes) < 3:
+        ok = False
+
+    # 4. The eMBB cap actually binds. This is the check that matters most: if the shaper is not
+    #    engaging, every downstream measurement is of an unshaped link and means nothing.
+    h2, h5 = net["h2"], net["h5"]
+    embb_cap = programmed["embb"]
+    offered_mbps = max(embb_cap / 1e6 * 2.0, 1.0)  # offer double the cap so the cap must bind
+    h5.cmd(f"iperf3 -s -p {SLICE_PORTS['embb']} -D --logfile /tmp/iperf3_embb_srv.log")
+    time.sleep(1.0)
+    raw = h2.cmd(
+        f"iperf3 -c {h5.IP()} -p {SLICE_PORTS['embb']} -u -b {offered_mbps}M "
+        f"-t 8 -J 2>/dev/null"
+    )
+    h5.cmd("pkill -f 'iperf3 -s' || true")
+
+    achieved_bps = None
+    try:
+        j = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+        # Receiver-side sum is the goodput that actually crossed the bottleneck.
+        achieved_bps = float(j["end"]["sum"]["bits_per_second"])
+    except Exception as exc:  # noqa: BLE001
+        report["iperf3_parse_error"] = str(exc)
+        report["iperf3_raw_tail"] = raw[-500:]
+        ok = False
+
+    if achieved_bps is not None:
+        ratio = achieved_bps / embb_cap
+        report["embb_cap_bps"] = embb_cap
+        report["embb_offered_bps"] = offered_mbps * 1e6
+        report["embb_achieved_bps"] = achieved_bps
+        report["embb_achieved_over_cap"] = ratio
+        # Allow 15 percent under (UDP overhead, iperf3 accounting) and 10 percent over.
+        if not (0.85 <= ratio <= 1.10):
+            ok = False
+
+    report["all_passed"] = ok
+    return ok, report
+
+
+# --------------------------------------------------------------------------- entry point
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="Build the slice topology and verify the QoS.")
+    ap.add_argument("--scenario", default="burst")
+    ap.add_argument("--level", type=int, default=1, help="eMBB action level index to program")
+    ap.add_argument("--check", action="store_true", help="run stage 1 checks then tear down")
+    ap.add_argument("--cli", action="store_true", help="drop to the Mininet CLI after setup")
+    ap.add_argument("--report", default="results/summary/topo_check.json")
+    args = ap.parse_args(argv)
+
+    if not args.check and not args.cli:
+        ap.error("pass --check or --cli")
+
+    from mininet.log import setLogLevel
+
+    setLogLevel("info")
+    cfg = load_config(scenario=args.scenario)
+
+    net = None
+    try:
+        net = build_network(cfg)
+        iface = bottleneck_iface(net)
+        print(f"\n[slice_topo] bottleneck interface: {iface}")
+        programmed = apply_qos(iface, cfg, args.level)
+        install_flows("s1")
+        print(f"[slice_topo] programmed max-rates (bps): {programmed}\n")
+
+        if args.check:
+            ok, report = verify(net, cfg, programmed)
+            out = REPO_ROOT / args.report
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+            print("\n" + "=" * 70)
+            print(json.dumps(report, indent=2, sort_keys=True))
+            print("=" * 70)
+            print(f"[slice_topo] {'PASS' if ok else 'FAIL'}   report written to {out}")
+            if not report.get("backlog_readable"):
+                print(
+                    "[slice_topo] NOTE: queue backlog is NOT readable from tc on this system.\n"
+                    "             ctx_q0_backlog_norm will be pinned to zero on this backend.\n"
+                    "             See docs/PLAN_TESTBED.md section 2.2."
+                )
+            return 0 if ok else 1
+
+        from mininet.cli import CLI
+
+        CLI(net)
+        return 0
+    finally:
+        if net is not None:
+            try:
+                clear_qos(bottleneck_iface(net))
+            except Exception:  # noqa: BLE001
+                clear_qos()
+            net.stop()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
