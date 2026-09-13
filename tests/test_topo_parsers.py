@@ -185,3 +185,151 @@ def test_every_slice_has_a_host_pair_across_the_bottleneck():
     assert senders == {"h1", "h2", "h3"}, "senders must sit on s1"
     assert receivers == {"h4", "h5", "h6"}, "receivers must sit on s2"
     assert not senders & receivers
+
+
+# --------------------------------------------------------------------------- iperf3 (real captures)
+#
+# These two fixtures are REAL iperf 3.16 output captured on the project's WSL2 testbed machine on
+# 2026-09-13, not hand-written structures:
+#   iperf3_316_udp_lossless.json      loopback, 2 Mbps offered, no loss
+#   iperf3_316_udp_capped_lossy.json  two namespaces over a veth capped at 1 Mbit by tbf, 4 Mbps
+#                                     offered, so sender and receiver genuinely differ
+# They exist to pin down which JSON field is the receiver. The first stage 1 check got that wrong.
+# The rates in them are parser fixtures only and are not cited as results anywhere.
+
+FIXTURES = REPO_ROOT / "tests" / "fixtures"
+
+
+def _fixture(name: str) -> str:
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+def test_end_sum_is_the_sender_on_iperf_316_which_is_the_bug_this_guards():
+    """The regression test for the stage 1 error, stated directly against the real capture."""
+    import json
+
+    j = json.loads(_fixture("iperf3_316_udp_capped_lossy.json"))
+    assert j["end"]["sum"]["sender"] is True
+    assert j["end"]["sum"]["bits_per_second"] == j["end"]["sum_sent"]["bits_per_second"]
+    assert j["end"]["sum"]["bits_per_second"] > 3 * j["end"]["sum_received"]["bits_per_second"]
+
+
+def test_parser_takes_receiver_goodput_from_sum_received_not_sum():
+    p = topo.parse_iperf3_udp(_fixture("iperf3_316_udp_capped_lossy.json"))
+    assert p["parse_ok"]
+    assert p["sender_bps"] == pytest.approx(4001634, rel=1e-6)
+    assert p["receiver_bps"] == pytest.approx(976370, rel=1e-6)
+    assert p["receiver_bps"] < p["sender_bps"]
+    assert p["lost_packets"] == 803
+    assert p["lost_percent"] == pytest.approx(74.9, abs=0.1)
+    assert p["iperf_version"] == "iperf 3.16"
+
+
+def test_parser_on_a_lossless_run_gives_near_equal_sender_and_receiver():
+    p = topo.parse_iperf3_udp(_fixture("iperf3_316_udp_lossless.json"))
+    assert p["parse_ok"]
+    assert p["lost_packets"] == 0
+    assert p["receiver_bps"] == pytest.approx(p["sender_bps"], rel=0.05)
+
+
+def test_parser_refuses_to_substitute_sum_for_a_missing_receiver():
+    """If sum_received is absent, receiver must be None, never quietly taken from end.sum."""
+    import json
+
+    j = json.loads(_fixture("iperf3_316_udp_capped_lossy.json"))
+    del j["end"]["sum_received"]
+    p = topo.parse_iperf3_udp(json.dumps(j))
+    assert p["parse_ok"], "sender is still known"
+    assert p["receiver_bps"] is None
+    assert p["sender_bps"] == pytest.approx(4001634, rel=1e-6)
+
+
+def test_parser_survives_leading_noise_and_reports_iperf_errors():
+    noisy = "warning: something\n" + _fixture("iperf3_316_udp_lossless.json")
+    assert topo.parse_iperf3_udp(noisy)["parse_ok"]
+
+    err = topo.parse_iperf3_udp('{"start": {}, "intervals": [], "error": "unable to connect"}')
+    assert not err["parse_ok"]
+    assert "unable to connect" in err["error"]
+
+    garbage = topo.parse_iperf3_udp("iperf3: error - unable to connect to server")
+    assert not garbage["parse_ok"]
+    assert garbage["receiver_bps"] is None
+
+
+# --------------------------------------------------------------------------- tc rate strings
+
+
+@pytest.mark.parametrize(
+    "text, bps",
+    [
+        ("10Mbit", 10_000_000),     # all four of these appeared in the real stage 1 tc output
+        ("3500Kbit", 3_500_000),
+        ("500Kbit", 500_000),
+        ("1Mbit", 1_000_000),
+        ("64bit", 64),
+        ("1Gbit", 1_000_000_000),
+        ("100Kbps", 800_000),       # tc 'bps' is BYTES per second
+    ],
+)
+def test_tc_rate_parser(text, bps):
+    assert topo.parse_tc_rate(text) == pytest.approx(bps)
+
+
+@pytest.mark.parametrize("text", [None, "", "fast", "10Mb"])
+def test_tc_rate_parser_returns_none_on_unreadable_input(text):
+    assert topo.parse_tc_rate(text) is None
+
+
+def test_tc_ceil_from_the_parsed_class_round_trips_to_the_programmed_cap():
+    classes = topo.parse_tc_classes(TC_CLASSES)
+    assert topo.parse_tc_rate(classes["1:2"]["ceil"]) == pytest.approx(3_500_000)
+
+
+# --------------------------------------------------------------------------- backpressure rule
+
+CAP = 3_500_000.0
+
+
+def _row(mult, sender_ratio_of_request=None, sender_bps=None):
+    requested = mult * CAP
+    if sender_bps is None:
+        sender_bps = None if sender_ratio_of_request is None else sender_ratio_of_request * requested
+    return {"offered_bps_requested": requested, "iperf3": {"sender_bps": sender_bps}}
+
+
+def test_open_loop_when_the_sender_tracks_the_request_above_the_cap():
+    rows = [_row(0.5, 1.0), _row(1.0, 1.0), _row(2.0, 0.99), _row(4.0, 0.97)]
+    assert topo.classify_backpressure(rows, CAP)[0] == "OPEN_LOOP"
+
+
+def test_backpressure_when_the_sender_is_pinned_near_the_cap_whatever_is_requested():
+    """The pattern the first stage 1 run hinted at: 7 Mbps requested, about 3.5 Mbps sent."""
+    rows = [
+        _row(0.5, 1.0),
+        _row(1.0, 1.0),
+        _row(2.0, sender_bps=1.01 * CAP),
+        _row(4.0, sender_bps=1.02 * CAP),
+    ]
+    assert topo.classify_backpressure(rows, CAP)[0] == "BACKPRESSURE"
+
+
+def test_generator_limited_when_the_control_row_below_the_cap_already_falls_short():
+    """If the sender cannot reach half the cap, the generator is broken and nothing else counts."""
+    rows = [_row(0.5, 0.6), _row(1.0, 0.6), _row(2.0, sender_bps=CAP), _row(4.0, sender_bps=CAP)]
+    assert topo.classify_backpressure(rows, CAP)[0] == "GENERATOR_LIMITED"
+
+
+def test_mixed_when_the_sender_neither_tracks_nor_pins():
+    rows = [_row(0.5, 1.0), _row(2.0, sender_bps=1.6 * CAP), _row(4.0, sender_bps=2.4 * CAP)]
+    assert topo.classify_backpressure(rows, CAP)[0] == "MIXED"
+
+
+def test_rule_refuses_to_classify_without_a_control_row():
+    rows = [_row(2.0, 1.0), _row(4.0, 1.0)]
+    assert topo.classify_backpressure(rows, CAP)[0] == "MIXED"
+
+
+def test_a_missing_sender_rate_in_the_control_row_is_not_treated_as_healthy():
+    rows = [_row(0.5, None), _row(2.0, 1.0), _row(4.0, 1.0)]
+    assert topo.classify_backpressure(rows, CAP)[0] == "GENERATOR_LIMITED"

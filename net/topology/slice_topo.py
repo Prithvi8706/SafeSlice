@@ -38,6 +38,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+import numpy as np  # noqa: E402
+
 from config_loader import load_config  # noqa: E402
 from net.backend import allocation_from_level  # noqa: E402
 
@@ -333,39 +335,288 @@ def verify(net, cfg, programmed: Dict[str, int]) -> Tuple[bool, Dict]:
 
     # 4. The eMBB cap actually binds. This is the check that matters most: if the shaper is not
     #    engaging, every downstream measurement is of an unshaped link and means nothing.
-    h2, h5 = net["h2"], net["h5"]
+    #
+    #    CORRECTED 2026-09-13. The first version read iperf3's `end.sum.bits_per_second` as the
+    #    receiver goodput. On iperf 3.16 that field is the SENDER rate (`"sender": true`); the
+    #    receiver is `end.sum_received`. Verified against a controlled lossy run, which is now a
+    #    test fixture: 4.002 Mbps in `end.sum`, 0.976 Mbps in `end.sum_received`, across a 1 Mbit
+    #    cap. The first stage 1 run therefore reported a sender rate as if it were goodput, and its
+    #    PASS on this check is void. It is kept at
+    #    results/summary/topo_check_superseded_sender_rate_bug.json.
     embb_cap = programmed["embb"]
-    offered_mbps = max(embb_cap / 1e6 * 2.0, 1.0)  # offer double the cap so the cap must bind
-    h5.cmd(f"iperf3 -s -p {SLICE_PORTS['embb']} -D --logfile /tmp/iperf3_embb_srv.log")
-    time.sleep(1.0)
-    raw = h2.cmd(
-        f"iperf3 -c {h5.IP()} -p {SLICE_PORTS['embb']} -u -b {offered_mbps}M "
-        f"-t 8 -J 2>/dev/null"
-    )
-    h5.cmd("pkill -f 'iperf3 -s' || true")
+    probe = embb_probe(net, iface, offered_bps=2.0 * embb_cap, duration_s=8.0)
+    report["embb_probe"] = probe
+    report["embb_cap_bps"] = embb_cap
 
-    achieved_bps = None
-    try:
-        j = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
-        # Receiver-side sum is the goodput that actually crossed the bottleneck.
-        achieved_bps = float(j["end"]["sum"]["bits_per_second"])
-    except Exception as exc:  # noqa: BLE001
-        report["iperf3_parse_error"] = str(exc)
-        report["iperf3_raw_tail"] = raw[-500:]
+    if not probe["iperf3"]["parse_ok"] or probe["iperf3"]["receiver_bps"] is None:
         ok = False
-
-    if achieved_bps is not None:
-        ratio = achieved_bps / embb_cap
-        report["embb_cap_bps"] = embb_cap
-        report["embb_offered_bps"] = offered_mbps * 1e6
-        report["embb_achieved_bps"] = achieved_bps
-        report["embb_achieved_over_cap"] = ratio
-        # Allow 15 percent under (UDP overhead, iperf3 accounting) and 10 percent over.
-        if not (0.85 <= ratio <= 1.10):
+    else:
+        receiver_over_cap = probe["iperf3"]["receiver_bps"] / embb_cap
+        report["embb_receiver_over_cap"] = receiver_over_cap
+        # Allow 15 percent under (UDP header accounting, iperf3 interval edges) and 10 over.
+        if not (0.85 <= receiver_over_cap <= 1.10):
             ok = False
 
+    report["transport_facts"] = transport_facts(net, iface)
     report["all_passed"] = ok
     return ok, report
+
+
+# --------------------------------------------------------------------------- iperf3 and probes
+
+#: Explicit UDP payload. Below the 1500 byte MTU once IP and UDP headers are added, so no datagram
+#: is fragmented. A fragmented datagram is lost whole if any fragment is dropped, which inflates
+#: loss at the bottleneck and would make drop counts depend on a default we never chose.
+UDP_PAYLOAD_BYTES = 1400
+
+
+def parse_iperf3_udp(text: str) -> Dict:
+    """Parse `iperf3 -u -J` client output. Pure function, tested against real iperf 3.16 captures.
+
+    The field that matters and that was once got wrong: on iperf 3.16, `end.sum` is marked
+    `"sender": true` and its `bits_per_second` is the SENDER rate. Receiver goodput lives only in
+    `end.sum_received`. If `sum_received` is absent (older iperf3), receiver goodput is reported as
+    None rather than silently substituted from `end.sum`, because substituting it is precisely the
+    bug this function exists to prevent.
+    """
+    out: Dict = {
+        "parse_ok": False,
+        "error": None,
+        "sender_bps": None,
+        "sender_bytes": None,
+        "receiver_bps": None,
+        "receiver_bytes": None,
+        "packets_sent": None,
+        "packets_received": None,
+        "lost_packets": None,
+        "lost_percent": None,
+        "jitter_ms": None,
+        "iperf_version": None,
+    }
+    try:
+        blob = text[text.index("{"): text.rindex("}") + 1]
+        j = json.loads(blob)
+    except (ValueError, json.JSONDecodeError) as exc:
+        out["error"] = f"unparseable iperf3 output: {exc}"
+        return out
+
+    if "error" in j:
+        out["error"] = str(j["error"])
+        return out
+
+    out["iperf_version"] = j.get("start", {}).get("version")
+    end = j.get("end", {})
+    sent = end.get("sum_sent")
+    recv = end.get("sum_received")
+
+    if sent is None and "sum" in end and end["sum"].get("sender") is True:
+        sent = end["sum"]
+
+    if sent is not None:
+        out["sender_bps"] = float(sent["bits_per_second"])
+        out["sender_bytes"] = int(sent["bytes"])
+        out["packets_sent"] = sent.get("packets")
+    if recv is not None:
+        out["receiver_bps"] = float(recv["bits_per_second"])
+        out["receiver_bytes"] = int(recv["bytes"])
+        out["packets_received"] = recv.get("packets")
+        out["lost_packets"] = recv.get("lost_packets")
+        out["lost_percent"] = recv.get("lost_percent")
+        out["jitter_ms"] = recv.get("jitter_ms")
+
+    out["parse_ok"] = sent is not None
+    return out
+
+
+def parse_tc_rate(text: Optional[str]) -> Optional[float]:
+    """Convert a tc rate string such as '3500Kbit' to bits per second.
+
+    tc prints bit rates with SI prefixes ('Kbit' is 1000 bits). A 'bps' suffix in tc means BYTES
+    per second, so it is multiplied by 8. Returns None when the string cannot be read.
+    """
+    if not text:
+        return None
+    m = re.fullmatch(r"\s*([\d.]+)\s*([KMG]?)(bit|bps)\s*", text, flags=re.IGNORECASE)
+    if not m:
+        return None
+    value = float(m.group(1))
+    value *= {"": 1.0, "K": 1e3, "M": 1e6, "G": 1e9}[m.group(2).upper()]
+    if m.group(3).lower() == "bps":
+        value *= 8.0
+    return value
+
+
+def transport_facts(net, iface: str) -> Dict:
+    """Kernel settings that decide whether a full shaper queue pushes back on the sender.
+
+    Recorded on every check because they are the discriminating evidence for the backpressure
+    question in docs/PLAN_TESTBED.md: a UDP sender can only be slowed by the shaper if the queue
+    holding its packets is deep enough to exhaust the socket's send buffer before it drops.
+    """
+    def _read(cmd: List[str]) -> Optional[str]:
+        try:
+            return sh(cmd, check=False).strip()
+        except Exception:  # noqa: BLE001
+            return None
+
+    return {
+        "bottleneck_qdisc": _read(["tc", "qdisc", "show", "dev", iface]),
+        "bottleneck_txqueuelen": _read(["cat", f"/sys/class/net/{iface}/tx_queue_len"]),
+        "sender_host_qdisc": net["h2"].cmd("tc qdisc show dev h2-eth0").strip(),
+        "net_core_wmem_default": _read(["sysctl", "-n", "net.core.wmem_default"]),
+        "net_core_wmem_max": _read(["sysctl", "-n", "net.core.wmem_max"]),
+        "udp_payload_bytes": UDP_PAYLOAD_BYTES,
+    }
+
+
+def embb_probe(net, iface: str, offered_bps: float, duration_s: float = 8.0) -> Dict:
+    """Send one eMBB UDP flow h2 -> h5 and measure it from both ends and from the switch.
+
+    Three independent views of the same flow, because the first stage 1 run trusted one view and
+    it was the wrong one:
+      - iperf3 sender:   what the application actually managed to send
+      - iperf3 receiver: what crossed the bottleneck
+      - tc class 1:2:    bytes the shaper transmitted and packets it dropped
+    Queue backlog is sampled while the flow runs, since a backlog that sits full is the signature
+    of a shaper pushing back on its sender.
+    """
+    import subprocess as _sp
+    import tempfile
+
+    h2, h5 = net["h2"], net["h5"]
+    port = SLICE_PORTS["embb"]
+    handle = tc_handle_for_queue(SLICE_QUEUE["embb"])
+    workdir = tempfile.mkdtemp(prefix="safeslice_probe_")
+    client_json = f"{workdir}/client.json"
+
+    h5.cmd(f"iperf3 -s -p {port} -D --logfile {workdir}/server.log")
+    for _ in range(50):
+        if f":{port}" in h5.cmd("ss -ltn"):
+            break
+        time.sleep(0.1)
+
+    before = read_tc_classes(iface).get(handle, {})
+    t0 = time.time()
+    proc = h2.popen(
+        ["sh", "-c",
+         f"iperf3 -c {h5.IP()} -p {port} -u -b {int(offered_bps)} -l {UDP_PAYLOAD_BYTES} "
+         f"-t {duration_s:g} -J > {client_json} 2> {workdir}/client.err"],
+        stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+    )
+
+    backlog_samples: List[int] = []
+    time.sleep(1.5)  # let the queue reach steady state before sampling
+    while proc.poll() is None:
+        b = queue_backlog_bytes(iface).get(SLICE_QUEUE["embb"])
+        if b is not None:
+            backlog_samples.append(int(b))
+        time.sleep(0.5)
+    proc.wait()
+    elapsed = time.time() - t0
+    after = read_tc_classes(iface).get(handle, {})
+    h5.cmd(f"pkill -f 'iperf3 -s -p {port}' || true")
+
+    try:
+        text = Path(client_json).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        text = f"<no client output: {exc}>"
+    parsed = parse_iperf3_udp(text)
+    if not parsed["parse_ok"]:
+        parsed["raw_tail"] = text[-600:]
+
+    def _delta(key):
+        a, b = after.get(key), before.get(key)
+        return None if a is None or b is None else a - b
+
+    sent_delta = _delta("sent_bytes")
+    return {
+        "offered_bps_requested": float(offered_bps),
+        "duration_s": float(duration_s),
+        "wall_elapsed_s": float(elapsed),
+        "iperf3": parsed,
+        "sender_over_requested": (
+            None if parsed["sender_bps"] is None else parsed["sender_bps"] / offered_bps
+        ),
+        "tc_class": handle,
+        "tc_sent_bytes_delta": sent_delta,
+        "tc_sent_bps_l2": None if sent_delta is None else sent_delta * 8.0 / elapsed,
+        "tc_dropped_pkts_delta": _delta("dropped_pkts"),
+        "tc_ceil": after.get("ceil"),
+        "tc_ceil_bps": parse_tc_rate(after.get("ceil")),
+        "backlog_bytes_samples": backlog_samples,
+        "backlog_bytes_median": (
+            float(np.median(backlog_samples)) if backlog_samples else None
+        ),
+        "backlog_bytes_max": max(backlog_samples) if backlog_samples else None,
+    }
+
+
+def classify_backpressure(rows: List[Dict], cap_bps: float) -> Tuple[str, str]:
+    """Decide, from a sweep of offered rates, whether the sender is open-loop or throttled.
+
+    Pre-registered in docs/PLAN_TESTBED.md section 2.6 before the diagnostic had run. Pure
+    function, unit tested.
+
+    rows must include one below the cap (the control) and at least one well above it.
+
+      GENERATOR_LIMITED  the sender cannot reach its requested rate even BELOW the cap, so the
+                         traffic generator itself is broken and nothing else can be concluded.
+      OPEN_LOOP          above the cap, the sender still sends what it was asked. Excess is
+                         dropped at the queue. This is what net/sim_backend.py assumes.
+      BACKPRESSURE       above the cap, the sender is held near the cap. The queue pushes back on
+                         the application instead of dropping. The simulator does NOT model this.
+      MIXED              neither pattern cleanly. Report the table, draw no conclusion.
+    """
+    below = [r for r in rows if r["offered_bps_requested"] <= 0.75 * cap_bps]
+    above = [r for r in rows if r["offered_bps_requested"] >= 1.9 * cap_bps]
+    if not below or not above:
+        return "MIXED", "sweep must include a row below 0.75x cap and one at 1.9x cap or above"
+
+    def _sender_ratio(r):
+        s = r["iperf3"]["sender_bps"]
+        return None if s is None else s / r["offered_bps_requested"]
+
+    control = [_sender_ratio(r) for r in below]
+    if any(c is None for c in control) or min(control) < 0.9:
+        return (
+            "GENERATOR_LIMITED",
+            "the sender missed its requested rate below the cap, so the generator, not the "
+            "shaper, is limiting it",
+        )
+
+    ratios = [_sender_ratio(r) for r in above]
+    sender_over_cap = [
+        r["iperf3"]["sender_bps"] / cap_bps for r in above if r["iperf3"]["sender_bps"] is not None
+    ]
+    if all(x is not None and x >= 0.9 for x in ratios):
+        return "OPEN_LOOP", "above the cap the sender still sent what it was asked; excess dropped"
+    if sender_over_cap and all(x <= 1.25 for x in sender_over_cap):
+        return (
+            "BACKPRESSURE",
+            "above the cap the sender was held within 25 percent of the cap regardless of the "
+            "requested rate; the queue is pushing back on the application",
+        )
+    return "MIXED", "sender neither tracked the request nor stayed near the cap"
+
+
+def diagnose_backpressure(net, iface: str, cfg, programmed: Dict[str, int]) -> Dict:
+    """Stage 1b. Sweep the offered eMBB rate across the cap and classify the sender's behaviour."""
+    cap = float(programmed["embb"])
+    multipliers = (0.5, 1.0, 2.0, 4.0)
+    rows = []
+    for m in multipliers:
+        print(f"[slice_topo] probing eMBB at {m:g}x cap = {m * cap / 1e6:.2f} Mbps ...", flush=True)
+        rows.append(embb_probe(net, iface, offered_bps=m * cap, duration_s=8.0))
+        time.sleep(2.0)  # let the queue drain before the next rate
+    label, reason = classify_backpressure(rows, cap)
+    return {
+        "embb_cap_bps": cap,
+        "multipliers": list(multipliers),
+        "rows": rows,
+        "classification": label,
+        "classification_reason": reason,
+        "transport_facts": transport_facts(net, iface),
+    }
 
 
 # --------------------------------------------------------------------------- entry point
@@ -376,12 +627,18 @@ def main(argv=None) -> int:
     ap.add_argument("--scenario", default="burst")
     ap.add_argument("--level", type=int, default=1, help="eMBB action level index to program")
     ap.add_argument("--check", action="store_true", help="run stage 1 checks then tear down")
+    ap.add_argument(
+        "--diagnose-backpressure",
+        action="store_true",
+        help="sweep offered eMBB rate across the cap and classify sender behaviour",
+    )
     ap.add_argument("--cli", action="store_true", help="drop to the Mininet CLI after setup")
-    ap.add_argument("--report", default="results/summary/topo_check.json")
+    ap.add_argument("--report", default=None)
     args = ap.parse_args(argv)
 
-    if not args.check and not args.cli:
-        ap.error("pass --check or --cli")
+    modes = [args.check, args.diagnose_backpressure, args.cli]
+    if sum(bool(m) for m in modes) != 1:
+        ap.error("pass exactly one of --check, --diagnose-backpressure, --cli")
 
     from mininet.log import setLogLevel
 
@@ -397,15 +654,58 @@ def main(argv=None) -> int:
         install_flows("s1")
         print(f"[slice_topo] programmed max-rates (bps): {programmed}\n")
 
+        if args.diagnose_backpressure:
+            diag = diagnose_backpressure(net, iface, cfg, programmed)
+            out = REPO_ROOT / (args.report or "results/summary/backpressure_diagnosis.json")
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps(diag, indent=2, sort_keys=True), encoding="utf-8")
+
+            def _mbps(v):
+                return "   n/a" if v is None else f"{v / 1e6:6.3f}"
+
+            print("\n" + "=" * 92)
+            print(f"  eMBB cap {diag['embb_cap_bps'] / 1e6:.2f} Mbps.  All rates in Mbps.")
+            print("  mult  requested  sender  receiver  tc_l2_sent  iperf_loss%  tc_drops  "
+                  "backlog_med_B  backlog_max_B")
+            for m, r in zip(diag["multipliers"], diag["rows"]):
+                ip = r["iperf3"]
+                loss = ip["lost_percent"]
+                print(f"  {m:4g}  {_mbps(r['offered_bps_requested'])}     "
+                      f"{_mbps(ip['sender_bps'])}  {_mbps(ip['receiver_bps'])}    "
+                      f"{_mbps(r['tc_sent_bps_l2'])}      "
+                      f"{'  n/a' if loss is None else f'{loss:6.2f}'}     "
+                      f"{r['tc_dropped_pkts_delta']!s:>7}  "
+                      f"{r['backlog_bytes_median']!s:>13}  {r['backlog_bytes_max']!s:>13}")
+            print("-" * 92)
+            print(f"  CLASSIFICATION  {diag['classification']}")
+            print(f"  {diag['classification_reason']}")
+            print("=" * 92)
+            tf = diag["transport_facts"]
+            print(f"  bottleneck txqueuelen {tf['bottleneck_txqueuelen']}   "
+                  f"wmem_default {tf['net_core_wmem_default']}   wmem_max {tf['net_core_wmem_max']}")
+            print(f"  bottleneck qdisc:\n    " + (tf["bottleneck_qdisc"] or "n/a").replace("\n", "\n    "))
+            print(f"[slice_topo] wrote {out}")
+            return 0
+
         if args.check:
             ok, report = verify(net, cfg, programmed)
-            out = REPO_ROOT / args.report
+            out = REPO_ROOT / (args.report or "results/summary/topo_check.json")
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
             print("\n" + "=" * 70)
             print(json.dumps(report, indent=2, sort_keys=True))
             print("=" * 70)
             print(f"[slice_topo] {'PASS' if ok else 'FAIL'}   report written to {out}")
+            probe = report.get("embb_probe", {})
+            sor = probe.get("sender_over_requested")
+            if sor is not None and sor < 0.9:
+                print(
+                    f"[slice_topo] NOTE: the sender managed only {sor * 100:.0f} percent of the "
+                    "rate it was asked for.\n"
+                    "             The cap check above is about the RECEIVER and can still pass,\n"
+                    "             but a throttled sender means offered load is not what the\n"
+                    "             simulator assumes. Run --diagnose-backpressure next."
+                )
             if not report.get("backlog_readable"):
                 print(
                     "[slice_topo] NOTE: queue backlog is NOT readable from tc on this system.\n"

@@ -2,7 +2,17 @@
 
 Branch: `feature/mininet-testbed`. `main` is protected; this lands by PR.
 
-Status: awaiting go-ahead. No implementation written yet.
+Status, 2026-09-13:
+
+- **Stage 1: partially valid, cap check void, re-run required.** Connectivity, the three OpenFlow
+  queues and the three tc HTB classes all passed and stand. The cap-binding check read iperf3's
+  sender rate as if it were receiver goodput (see section 2.6 and the correction note in
+  `net/topology/slice_topo.py:verify`), so its PASS does not count. Original report kept at
+  `results/summary/topo_check_superseded_sender_rate_bug.json`.
+- **Stage 2: complete, CLEAN.** Idle RTT h1 to h4 through q0: p50 0.093 ms, p95 0.133 ms,
+  p99 0.166 ms, max 7.850 ms, 1182 samples, 0 percent loss, 1226 ICMP packets counted in q0.
+  `results/summary/noise_floor.json`. Unaffected by the stage 1 bug, since it used ping only.
+- **Stage 1b, added: backpressure diagnostic.** Section 2.6. Gates stage 3.
 
 ---
 
@@ -117,6 +127,31 @@ The simulator runs in virtual time. Mininet does not. Budget:
 | 6, live policy demo: 4 policies x 1 scenario x 300 s | 4 | ~25 min |
 
 Under an hour and a half of VM time total. That is the reason for the narrow scope.
+
+### 2.6 Does a full shaper queue push back on the sender? (added 2026-09-13, before measuring)
+
+The simulator assumes traffic is **open-loop**: a source offers its rate whether or not the queue
+is full, and the excess is tail-dropped. Every contention result in `docs/EXPERIMENTS.md` rests
+on that, and so does the `w_drop` reward term, which `docs/DESIGN.md` section 5 already notes is
+dominated by eMBB tail drops.
+
+The first stage 1 run produced a reason to doubt it on this testbed. Asked to send 7 Mbps into a
+3.5 Mbps cap, the iperf3 sender reported sending 3.53 Mbps. In a separate test across a
+tbf-shaped veth with a small queue, the sender did send its full rate and the excess was dropped.
+So the sender slowing itself down is not normal iperf3 behaviour. It is specific to something
+about this topology, and the plausible candidate is the depth of the HTB leaf queue relative to
+the sending socket's buffer. That is a hypothesis, not a finding.
+
+`python3 net/topology/slice_topo.py --diagnose-backpressure` offers eMBB at 0.5x, 1x, 2x and 4x
+the cap and reads each flow three ways: iperf3 sender, iperf3 receiver, and tc class counters.
+Classification rule, fixed now, implemented in `slice_topo.py:classify_backpressure`:
+
+| Label | Condition | What it means for the project |
+|---|---|---|
+| `GENERATOR_LIMITED` | sender below 90 percent of requested at 0.5x cap, the control row | The traffic generator is broken. Fix it; conclude nothing else. |
+| `OPEN_LOOP` | sender at 90 percent of requested or more at 2x and 4x | The simulator's arrival model holds. Proceed to stage 3 as planned. |
+| `BACKPRESSURE` | sender within 25 percent of the cap at 2x and 4x, whatever was requested | **The simulator's arrival model is wrong for this testbed.** Offered load cannot exceed the cap, tail drops become rare, the `w_drop` term reads near zero, and queues sit at a depth set by socket buffers rather than `sim.queue_limit_bytes`. This must be reported as a sim-vs-testbed divergence and resolved before stage 4, either by making the generator genuinely open-loop or by stating that the testbed is closed-loop and comparing on that basis. |
+| `MIXED` | neither | Report the table. Draw no conclusion. |
 
 ---
 

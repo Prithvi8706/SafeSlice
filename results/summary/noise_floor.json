@@ -1,0 +1,62 @@
+{
+  "environment": {
+    "collected_at_iso": "2026-09-12T18:08:52+0000",
+    "config_hash": "62a1fe936861dc87",
+    "cpu_count": 22,
+    "kernel_release": "6.6.87.2-microsoft-standard-WSL2",
+    "loadavg_end": [
+      0.04541015625,
+      0.07080078125,
+      0.0703125
+    ],
+    "loadavg_start": [
+      0.04833984375,
+      0.07421875,
+      0.0712890625
+    ],
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python_version": "3.12.3",
+    "scenario_config_used": "burst"
+  },
+  "p99_over_half_hard_ms": 0.04748285714285716,
+  "per_control_interval": {
+    "per_window_p50_median_ms": 0.0925,
+    "per_window_p95_max_ms": 1.2871499999999891,
+    "per_window_p95_median_ms": 0.11957499999999996,
+    "per_window_p95_p95_ms": 0.16902499999999987,
+    "samples_per_window_median": 18.0,
+    "samples_per_window_min": 17,
+    "window_s": 1.0,
+    "windows_kept": 66,
+    "windows_total": 67
+  },
+  "ping_summary": {
+    "loss_pct": 0.0,
+    "received": 1200,
+    "transmitted": 1200
+  },
+  "q0_classification_ok": true,
+  "q0_pkts_delta": 1226,
+  "reference_sla_hard_ms": 7.0,
+  "requested_duration_s": 60.0,
+  "requested_interval_s": 0.05,
+  "samples_after_warmup": 1182,
+  "samples_raw": 1200,
+  "suggested_testbed_base_rtt_ms": 0.093,
+  "verdict": "CLEAN",
+  "verdict_action": "Proceed.",
+  "verdict_rule": "docs/TESTBED_SETUP.md section 4",
+  "wall_clock_s": 67.15142273902893,
+  "warmup_discarded_s": 1.0,
+  "what": "idle ICMP RTT h1 -> h4 through s1 -> s2 with OVS QoS configured, ICMP in q0",
+  "whole_series": {
+    "max_ms": 7.85,
+    "mean_ms": 0.10269458544839255,
+    "min_ms": 0.047,
+    "n": 1182,
+    "p50_ms": 0.093,
+    "p95_ms": 0.13295000000000004,
+    "p99_ms": 0.16619000000000006,
+    "std_ms": 0.22654596508766045
+  }
+}
