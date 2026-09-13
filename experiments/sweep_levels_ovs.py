@@ -393,14 +393,23 @@ def main(argv=None) -> int:
         print(f"  Real OVS, constant load, {args.repeats} repeat(s) x {args.duration:g} s per level."
               f"  Mean ± 95% CI.  L2 Mbps.")
         print("  level  eMBB goodput     BE goodput       URLLC p50 ms    URLLC p95 ms    "
-              "ping delivered %   eMBB drops")
+              "URLLC pooled p99  ping delivered %  eMBB drops")
+        print("                                           (primary)       (vs floor)      "
+              "(vs floor)")
         for e in agg:
             invalid = e["n_invalid_runs"]
             note = "" if invalid == 0 else f"   ({invalid} invalid run(s) excluded)"
+            floor = "   <- loaded uncongested floor" if e["level_index"] == 0 else ""
             print(f"  {e['embb_share']:.2f}   {_ci(e['embb_goodput_l2_mbps']):<16} "
                   f"{_ci(e['be_goodput_l2_mbps']):<16} {_ci(e['urllc_rtt_p50_ms'], 2):<15} "
-                  f"{_ci(e['urllc_rtt_p95_ms'], 2):<15} {_ci(e['urllc_ping_delivered_pct'], 1):<16} "
-                  f"{_ci(e['embb_drops'], 0)}{note}")
+                  f"{_ci(e['urllc_rtt_p95_ms'], 2):<15} {_ci(e['urllc_rtt_pooled_p99_ms'], 2):<17} "
+                  f"{_ci(e['urllc_ping_delivered_pct'], 1):<17} "
+                  f"{_ci(e['embb_drops'], 0)}{note}{floor}")
+        print("-" * 118)
+        print("  URLLC p95 and p99 carry host jitter present even with an empty queue "
+              "(docs/PLAN_TESTBED.md section 2.10).")
+        print("  Read them against the level 0.20 row, where URLLC is uncongested. "
+              "p50 is the primary latency metric.")
         print("=" * 118)
         print(f"[sweep] wrote {base}.json, {base}.csv, {base}_runs.jsonl")
         return 0

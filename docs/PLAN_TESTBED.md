@@ -19,7 +19,9 @@ Status, 2026-09-13:
   queue depth does not matter. It does not describe the host under load; see section 2.9.
 - **Stages 3 and 4, quick run: calibration passed; slicing works; two problems found.** Section 2.9.
   One metric bug fixed, and a latency tail under load that queueing cannot explain.
-- **Stage 4a, added: attribute the tail, pending.** Section 2.9. Gates the full sweep.
+- **Stage 4a, added: `PATH_JITTER`, on weak p99 evidence but a robust decision.** Section 2.10.
+  The tail is caused by host load, not URLLC queueing and not the probe. p50 becomes the primary
+  latency metric; p95 and p99 are reported against the loaded floor. Full sweep unblocked.
 
 ---
 
@@ -307,6 +309,54 @@ implemented in `diagnose_rtt_tail.py:classify_rtt_tail`:
 
 The run also records URLLC backlog and drops in every loaded condition. If URLLC was not actually
 uncongested, part of the tail could be queueing, and the output says so.
+
+### 2.10 Stage 4a result (2026-09-13)
+
+`results/summary/rtt_tail_diagnosis.json`. eMBB level 0.20, burst load, 30 s per condition, pooled
+URLLC RTT in ms:
+
+| Condition | n | p50 | p95 | p99 | max | URLLC backlog median | URLLC drops | delivered |
+|---|---|---|---|---|---|---|---|---|
+| idle, normal priority | 429 | 0.10 | 0.15 | 0.20 | 0.34 | 0 | 0 | 100 % |
+| loaded, normal | 435 | 0.09 | 1.60 | 5.26 | 9.97 | 0 | 0 | 100 % |
+| loaded, real-time | 436 | 0.11 | 1.86 | 6.00 | 16.10 | 0 | 0 | 100 % |
+| loaded, normal | 435 | 0.10 | 1.19 | 5.57 | 16.50 | 0 | 0 | 100 % |
+| loaded, real-time | 437 | 0.11 | 1.19 | 1.72 | 20.60 | 0 | 0 | 100 % |
+
+**Classification by the section 2.9 rule: `PATH_JITTER`** (mean real-time p99 3.86 ms is at least
+half of mean normal p99 5.42 ms). The rule was applied as written.
+
+What the data supports strongly:
+
+1. **The idle floor reproduces stage 2** (p99 0.20 ms, max 0.34 ms).
+2. **Load alone creates the tail.** URLLC had zero backlog, zero drops and full delivery in every
+   loaded run, so none of it is URLLC queueing. The median is unaffected (0.09 to 0.11 ms).
+3. **The probe's own scheduling is not the cause.** The real-time runs produced the two largest
+   single replies of the whole test, 16.1 and 20.6 ms.
+
+What it does not support:
+
+- **The p99 comparison behind the label is weak.** The normal-priority runs agreed (5.26, 5.57 ms).
+  The two real-time runs did not (6.00, 1.72 ms). With two runs per condition and that spread, the
+  mean is carrying a disagreement, not a measurement. The label is not being leaned on.
+- **Where below the probe the delay arises is not identified.** The kernel packet path under load and
+  Hyper-V descheduling the WSL virtual CPU both fit. This test cannot separate them. Either way,
+  every packet crossing this testbed can experience it, which is what matters for measurement.
+
+**Why the decision is robust to that weakness.** `PATH_JITTER` and `PARTIAL` differ only in whether
+to adopt real-time ping, and real-time ping showed no consistent benefit. Both lead to the rest of
+the same plan, which is now in force:
+
+- **URLLC median RTT is the primary latency metric** for the testbed and for the stage 5 comparison.
+- **URLLC p95 and p99 are still reported**, but always beside the loaded uncongested floor, which in
+  the level sweep is the level 0.20 row. Never against zero, and never against the simulator at the
+  7 ms scale.
+- **The probe stays at normal priority.**
+- **Carried to stage 6, not resolved here:** the per-second p95 with URLLC uncongested was already
+  4.94 to 6.29 ms under load, against the guardrail's 7 ms hard limit and 4 ms warning threshold. A
+  p95-driven guardrail on this testbed would react to host jitter. The testbed SLO and the guardrail's
+  input statistic have to be re-derived before any live policy runs, and that is stated as a
+  limitation of the testbed rather than tuned around.
 
 ---
 
