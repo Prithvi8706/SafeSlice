@@ -8,6 +8,17 @@ vSwitch, because the testbed track was not built (`docs/PLAN.md` status note). I
 assumption is described in `docs/DESIGN.md` section 2. Do not quote anything here as a testbed
 result.
 
+**UPDATE 2026-09-13: that comparison now exists, at one operating point.** The first sentence of the
+paragraph above is superseded; the last sentence still holds, since everything below remains a
+simulator number. On branch `feature/mininet-testbed`, a five-level sweep on real OVS under constant
+load was compared against the simulator under matched conditions (`docs/PLAN_TESTBED.md` sections
+2.11 and 2.12). The simulator's `demand_proportional` mode, the one every run below used, is the only
+mode of three that reproduces URLLC latency rising with the eMBB level, and is classified
+`TRACKS_demand_proportional` under the rule recorded before the comparison ran. Two limits apply to
+every table below: that agreement covers one operating point under constant load, not the jittered
+scenarios these policies were evaluated on; and at that operating point the simulator underestimates
+eMBB goodput by 5 to 12 percent and overestimates Best Effort goodput by 7 to 39 percent.
+
 Status: complete. 8 policies x 4 scenarios x 10 seeds = 320 evaluation runs, plus 280 tuning runs
 and 900 sensitivity runs. 1,500 runs in total.
 

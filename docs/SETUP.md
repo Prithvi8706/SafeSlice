@@ -1,5 +1,11 @@
 # SETUP
 
+**UPDATE 2026-09-13: a Mininet testbed now exists**, on branch `feature/mininet-testbed`, built and
+run on WSL2 Ubuntu 24.04 rather than the VirtualBox VM this file assumes. For that environment follow
+`docs/TESTBED_SETUP.md`, not sections 1, 2 and 5 below. The banner below was true when written. It
+remains true that `OvsCliBackend`, `RyuBackend` and the live policy loop on the testbed do not exist;
+what exists is the topology, the traffic generator and the fixed-level experiments.
+
 ## STATUS: sections 1, 2, 4 and 5 describe a testbed that was never built
 
 Read this before following anything below. **There are no real backends.** `OvsCliBackend`,

@@ -22,6 +22,17 @@ Status, 2026-09-13:
 - **Stage 4a, added: `PATH_JITTER`, on weak p99 evidence but a robust decision.** Section 2.10.
   The tail is caused by host load, not URLLC queueing and not the probe. p50 becomes the primary
   latency metric; p95 and p99 are reported against the loaded floor. Full sweep unblocked.
+- **Stage 4: complete.** Section 2.11. Slicing works on real OVS with tight intervals, URLLC
+  throughput is fully protected, and URLLC median latency rises about 77-fold with the eMBB level. **The
+  control problem exists by measurement.**
+- **Stage 5: `TRACKS_demand_proportional`.** Section 2.12. The only mode of three that reproduces
+  URLLC latency rising with the eMBB level. The label becomes `PARTIAL` at thresholds of 0.15 or
+  stricter, and the model has systematic goodput biases larger than the testbed's intervals.
+- **Stage 7 started early, partially:** dated update notes added to `docs/DESIGN.md`,
+  `docs/EXPERIMENTS.md`, `docs/SETUP.md` and `docs/REPORT_OUTLINE.md` where they stated things now
+  false. The full rewrite has not been done.
+- **Stage 6 (live policy loop on OVS): not started.** Blocked on a design decision first: the
+  guardrail's p95 input and 7 ms limit cannot be used on this testbed as-is (section 2.10).
 
 ---
 
@@ -357,6 +368,129 @@ the same plan, which is now in force:
   p95-driven guardrail on this testbed would react to host jitter. The testbed SLO and the guardrail's
   input statistic have to be re-derived before any live policy runs, and that is stated as a
   limitation of the testbed rather than tuned around.
+
+### 2.11 Stage 4 result, and the stage 5 comparison rule (recorded 2026-09-13, before stage 5 ran)
+
+**Stage 4.** `results/summary/ovs_level_sweep.json`. Real OVS, constant burst-phase load (URLLC 3,
+eMBB 10, BE 4 Mbps L2), finite 62,500 B buffers, 3 repeats x 120 s per level, shuffled order.
+Calibration passed; 15 of 15 runs valid. Mean ± 95 % t interval, n = 3:
+
+| eMBB level | eMBB L2 Mbps | BE L2 Mbps | URLLC p50 ms | URLLC p95 ms | URLLC pooled p99 ms | URLLC drops | URLLC delivered |
+|---|---|---|---|---|---|---|---|
+| 0.20 | 1.995 ± 0.009 | 3.997 ± 0.015 | 0.10 ± 0.03 | 8.30 ± 10.00 | 7.71 ± 11.56 | 0 | 100 % |
+| 0.35 | 3.270 ± 0.030 | 3.638 ± 0.010 | 2.63 ± 0.21 | 10.18 ± 2.85 | 10.65 ± 1.28 | 0 | 100 % |
+| 0.50 | 4.082 ± 0.083 | 2.812 ± 0.020 | 3.65 ± 0.27 | 15.15 ± 9.31 | 15.92 ± 8.54 | 0 | 100 % |
+| 0.65 | 4.424 ± 0.015 | 2.465 ± 0.022 | 4.44 ± 0.44 | 16.97 ± 0.69 | 17.70 ± 2.30 | 0 | 100 % |
+| 0.80 | 5.087 ± 0.018 | 1.796 ± 0.013 | 7.67 ± 0.24 | 23.86 ± 5.99 | 25.17 ± 4.43 | 0 | 100 % |
+
+What this establishes:
+
+1. **The slicing works on real OVS, with tight intervals.** eMBB goodput rises and Best Effort
+   falls at every step; goodput intervals are at most ± 0.083 Mbps.
+2. **URLLC throughput is fully protected at every level:** zero drops and 100 % probe delivery in
+   all 15 runs.
+3. **Raising eMBB measurably costs URLLC latency.** Median RTT rises from 0.10 to 7.67 ms, and the
+   intervals of adjacent levels do not overlap.
+4. **The measurement accounts for every packet.** For eMBB and BE in every run, delivered plus
+   switch drops equals 99.6 to 100.0 % of offered. The small shortfall is in the direction expected
+   from the counter window being slightly shorter than nominal.
+5. **The p95 and p99 behave as section 2.10 predicted.** At the uncongested 0.20 level p95 is
+   8.30 ± 10.00 ms (runs: 12.33, 4.29, 8.28), so p95 cannot separate 0.20 from 0.35 or 0.50. The
+   median separates every level.
+
+**Result 3 settles the question the simulator comparison was originally built to answer.** The
+concern in `docs/DESIGN.md` section 2 was that real OVS might share leftover capacity like the
+`equal` mode, protecting URLLC for free and making the control problem vacuous. On the real switch
+at this operating point URLLC is not protected for free: its latency rises about 77-fold with the eMBB
+level. **The control problem exists, by measurement.** That no longer depends on stage 5.
+
+**What stage 5 still decides** is whether the simulator reproduces the testbed *quantitatively*, and
+under which sharing mode, which determines how far the 320-run simulator study can be trusted.
+
+**Stage 5 procedure.** `experiments/compare_sim_vs_ovs.py`. The simulator is run at each of the five
+levels under each of the three `sim.excess_sharing` modes, with conditions matched to stage 4:
+a single constant phase at URLLC 3.0, eMBB 10.0, BE 4.0 Mbps; all jitter set to zero; 120 steps with
+steps 10 to 118 kept, matching the testbed window of seconds 10 to 119; `link.base_rtt_ms` set to the
+measured idle median from stage 2 (0.093 ms) instead of the modelling constant 2.0. With zero jitter
+each cell is deterministic, so one run per cell.
+
+Metrics compared, per level, using the same definitions on both sides: eMBB goodput, BE goodput, and
+URLLC median RTT (median of the per-second medians). URLLC p95 is recorded but excluded from the
+rule, per section 2.10.
+
+**Rule.** For each mode and metric, MAE is the mean over the five levels of |simulator − testbed
+mean|, and normalised MAE (NMAE) is MAE divided by the testbed's range for that metric across the
+five levels, which is the size of the effect the model is meant to capture. A mode *tracks* a metric
+if its NMAE is at most **0.25**. The best mode is the one with the lowest mean NMAE across the three
+metrics.
+
+| Label | Condition | Consequence |
+|---|---|---|
+| `TRACKS_<mode>` | best mode tracks all three metrics | If `demand_proportional`: the simulator's default holds quantitatively at this operating point and the section 2 caveat in `docs/DESIGN.md` narrows to "one operating point, constant load". If another mode: the control problem still exists, but the 320-run study was produced under a mode that does not match the testbed, and must be relabelled as such. Re-running it under the matching mode is the obvious follow-up and is raised with the user, not done automatically. |
+| `PARTIAL_<mode>` | best mode tracks some metrics, not all | The simulator is right in shape but off on the failing metric. Report which, and do not rely on the simulator for that metric. |
+| `NEITHER` | best mode tracks none | The model is wrong in a way not anticipated. Stop and report. The simulator is not tuned to match; that would make the agreement circular. |
+
+**Disclosure about when this rule was set.** It was written after the stage 4 testbed numbers and the
+old jittered `demand_proportional` simulator table in `docs/DESIGN.md` section 3 were both visible,
+but before any constant-load simulator run and before the `equal` and `min_rate_proportional` modes
+had been run at all. The 0.25 threshold is a round-number judgment: a model whose average error
+exceeds a quarter of the effect it is modelling cannot be relied on to rank levels. It is not
+adjusted after seeing the result.
+
+**Scope, which the report must keep.** One operating point, constant load, five fixed levels. Agreement
+here does not show agreement under the jittered scenarios the policies were evaluated on.
+
+### 2.12 Stage 5 result (2026-09-13)
+
+`results/summary/sim_vs_ovs.json`, produced by `experiments/compare_sim_vs_ovs.py` under the section
+2.11 rule. **Classification: `TRACKS_demand_proportional`.**
+
+NMAE per metric (at most 0.25 tracks):
+
+| Mode | eMBB goodput | BE goodput | URLLC median RTT | Mean |
+|---|---|---|---|---|
+| `demand_proportional` | 0.085 | 0.158 | 0.087 | **0.110** |
+| `equal` | 0.167 | 0.256 | 0.476 | 0.300 |
+| `min_rate_proportional` | 0.096 | 0.117 | 0.476 | 0.230 |
+
+URLLC median RTT, ms, testbed against each mode:
+
+| Level | Testbed | `demand_proportional` | `equal` | `min_rate_proportional` |
+|---|---|---|---|---|
+| 0.20 | 0.10 ± 0.03 | 0.09 | 0.09 | 0.09 |
+| 0.35 | 2.63 ± 0.21 | 1.31 | 0.09 | 0.09 |
+| 0.50 | 3.65 ± 0.27 | 3.12 | 0.09 | 0.09 |
+| 0.65 | 4.44 ± 0.44 | 4.94 | 0.09 | 0.09 |
+| 0.80 | 7.67 ± 0.24 | 6.76 | 0.09 | 0.09 |
+
+**What is robust.** Only `demand_proportional` reproduces URLLC latency rising with the eMBB level.
+Both other modes predict it stays at the base RTT at every level, which the real switch contradicts by
+a factor of about 85 at level 0.80 (7.67 ms against 0.09 ms). That conclusion does not depend on the threshold: their URLLC NMAE
+of 0.476 fails any threshold that could reasonably be called agreement. **The simulation study was run
+under the one mode of the three that the real switch supports.**
+
+**What is threshold-sensitive.** The label is `TRACKS` at thresholds of 0.20 and above, and `PARTIAL`
+at 0.15 and below, where Best Effort goodput (NMAE 0.158) stops counting as tracked. The recorded
+threshold is 0.25 and the recorded label stands, but the report must state this margin.
+
+**What is systematic, not noise.** At every congested level, every `demand_proportional` error is
+larger than the testbed's own 95 percent interval, and the goodput errors all point the same way:
+
+| Level | eMBB goodput error | BE goodput error | URLLC median error |
+|---|---|---|---|
+| 0.35 | −0.154 Mbps (−5 %) | +0.246 (+7 %) | −1.33 ms (−50 %) |
+| 0.50 | −0.332 (−8 %) | +0.438 (+16 %) | −0.53 (−14 %) |
+| 0.65 | −0.240 (−5 %) | +0.351 (+14 %) | +0.51 (+11 %) |
+| 0.80 | −0.587 (−12 %) | +0.704 (+39 %) | −0.91 (−12 %) |
+
+The real switch gives eMBB more and Best Effort less than the model predicts. `min_rate_proportional`
+wins on Best Effort goodput, which is consistent with, but does not demonstrate, real HTB borrowing
+between eMBB and Best Effort being weighted by their guaranteed rates (1.0 against 0.5 Mbps) while
+URLLC's latency behaves demand-driven. That is a hypothesis for future work, not a finding.
+
+**Excluded from the rule, as recorded:** URLLC p95. The simulator's p95 equals its median at constant
+load, since a steady queue has no spread, while the testbed's p95 is 8 to 24 ms of mostly host jitter.
+The two are not comparable and are not compared.
 
 ---
 

@@ -4,10 +4,27 @@ Design decisions, with the reasoning and the limitations. Every number in this f
 presented as a measurement was produced by code in this repository that actually ran; anything
 not yet measured says `TBD`.
 
-Status: simulator track complete, 320-run suite in docs/EXPERIMENTS.md. **Nothing here has ever
-been validated against real Mininet or Open vSwitch, and now never will be within this project:
-the testbed track was not built.** Every reference below to "Week 1b" describes work that did not
-happen; the sentences are kept rather than deleted so the unmet dependency stays visible.
+**UPDATE 2026-09-13: the testbed track was built after all, on branch `feature/mininet-testbed`.**
+The status paragraph immediately below was true when written and is now superseded; it is kept so
+the history stays visible. The simulator has now been compared against real Open vSwitch at one
+operating point. Summary, with every number traceable to `docs/PLAN_TESTBED.md` sections 2.8 to 2.12:
+
+- Section 2's load-bearing assumption was tested. Of the three sharing modes, only
+  `demand_proportional` reproduces URLLC latency rising with the eMBB level; `equal` and
+  `min_rate_proportional` both predict it stays flat, which the real switch contradicts. The
+  control problem exists by measurement.
+- Under the rule recorded before the comparison ran, the simulator is classified
+  `TRACKS_demand_proportional` at that operating point. It also has systematic, statistically real
+  biases: it underestimates eMBB goodput by 5 to 12 percent and overestimates Best Effort goodput by
+  7 to 39 percent at every congested level, and its URLLC median is off by up to 50 percent.
+- Section 3's latency tail: on the testbed, URLLC p95 and p99 carry host jitter present even with an
+  empty queue, so simulator p95 has no testbed counterpart at the 7 ms scale.
+
+Status (as written before the testbed existed): simulator track complete, 320-run suite in
+docs/EXPERIMENTS.md. **Nothing here has ever been validated against real Mininet or Open vSwitch,
+and now never will be within this project: the testbed track was not built.** Every reference below
+to "Week 1b" describes work that did not happen; the sentences are kept rather than deleted so the
+unmet dependency stays visible.
 
 ---
 
@@ -95,6 +112,13 @@ three modes against it. THAT EXPERIMENT WAS NEVER RUN.** If real OVS behaves lik
 control problem does not exist at this operating point and every result in
 `docs/EXPERIMENTS.md` is a study of an artefact. Nothing in this project rules that out. It is
 the single largest threat to validity and `docs/REPORT_OUTLINE.md` section 8 states it as such.
+
+**UPDATE 2026-09-13: the experiment has now been run** as a fixed-level sweep on real OVS rather than
+through `OvsCliBackend` (`docs/PLAN_TESTBED.md` sections 2.11 and 2.12). Real OVS does not behave like
+`equal` at this operating point: URLLC median RTT rose from 0.10 to 7.67 ms across the five eMBB
+levels, while `equal` predicted 0.09 ms at every level. The threat above is resolved for this operating
+point under constant load. It is not resolved for the jittered scenarios the policies were evaluated
+on, which were never run on the testbed.
 
 ### A property of this model worth knowing about: URLLC self-stabilises
 

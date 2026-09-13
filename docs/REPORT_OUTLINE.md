@@ -177,6 +177,15 @@ leaving a stale number behind.
    control problem exists at all. Under the `equal` setting URLLC is largely protected for free
    and no controller is needed. We chose the pessimistic setting and said so, but "we chose the
    setting under which our method is useful" is a real threat and is stated as one.
+
+   **UPDATE 2026-09-13: now tested at one operating point** (`docs/PLAN_TESTBED.md` sections 2.11,
+   2.12). On real OVS, URLLC median RTT rose from 0.10 to 7.67 ms across the eMBB levels; `equal`
+   predicted no rise at all. `demand_proportional` is the only mode of three that reproduces it and
+   is classified `TRACKS` under a pre-recorded rule, a label that becomes `PARTIAL` at a threshold of
+   0.15 or stricter. The threat therefore moves down the list and changes character: from "the
+   control problem may not exist" to "the simulator is right in kind but systematically biased
+   (eMBB goodput 5 to 12 percent low, Best Effort 7 to 39 percent high), and was checked at one
+   operating point under constant load, not under the jittered scenarios".
 2. **Rounds are not independent.** Queue backlog and autocorrelated load both carry state across
    control intervals, which is not what a bandit assumes. `docs/DESIGN.md` section 1 sets out why
    this is tolerable and what it would explain if LinUCB underperformed.
@@ -192,6 +201,28 @@ leaving a stale number behind.
 ---
 
 ## 8. What was not built, and what that costs the conclusions
+
+**UPDATE 2026-09-13: most of this section is now superseded.** A Mininet and Open vSwitch testbed was
+built on branch `feature/mininet-testbed` (`docs/PLAN_TESTBED.md`). What changed:
+
+- **A noise floor was measured** (stage 2): idle URLLC RTT p50 0.093 ms, p99 0.166 ms. It was also
+  found that under load the tail grows to a p99 of about 5 ms with an empty queue (section 2.10), so
+  the testbed cannot resolve p95 at the 7 ms scale.
+- **The sim-vs-OVS comparison was run** (stage 5) and the gate was evaluated. Result in section 7,
+  threat 1 above.
+- **Slicing was demonstrated on a real switch** (stage 4): eMBB goodput 1.995 to 5.087 Mbps and Best
+  Effort 3.997 to 1.796 Mbps across the five levels, URLLC fully protected in throughput, 3 repeats
+  with tight intervals.
+- **Actuation through OVS works and is fast enough for a 1 s loop:** `ovs-vsctl` queue changes reached
+  the kernel shaper in 21 to 62 ms (stage 1c).
+
+What still does not exist: `OvsCliBackend`, the live policy loop on the testbed, and the OpenFlow
+meter path. No policy, learned or static, has been run on the real switch. The sentence at the end
+of this section should now read: *a simulation study of a control policy and a safety mechanism,
+whose central modelling assumption was checked on a real OVS testbed at one operating point, with a
+live testbed evaluation of the policies left as future work.*
+
+The original text follows, as written before the testbed existed.
 
 The Mininet/OVS/Ryu track from `docs/PLAN.md` weeks 1b, 2 and 4 does not exist. Consequences,
 stated plainly:
