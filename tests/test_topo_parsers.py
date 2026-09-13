@@ -333,3 +333,96 @@ def test_rule_refuses_to_classify_without_a_control_row():
 def test_a_missing_sender_rate_in_the_control_row_is_not_treated_as_healthy():
     rows = [_row(0.5, None), _row(2.0, 1.0), _row(4.0, 1.0)]
     assert topo.classify_backpressure(rows, CAP)[0] == "GENERATOR_LIMITED"
+
+
+# --------------------------------------------------------------------------- leaf qdiscs (real output)
+#
+# REAL `tc qdisc show` output captured on the WSL2 testbed on 2026-09-13, from an HTB root with a
+# bfifo and a pfifo leaf attached using the same `tc qdisc replace ... bfifo limit` command that
+# slice_topo.apply_leaf_queue_limits runs. Format fixture only.
+
+TC_LEAF_QDISCS_REAL = """qdisc htb 1: root refcnt 2 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+qdisc bfifo 100: parent 1:1 limit 62500b
+qdisc pfifo 101: parent 1:2 limit 43p
+"""
+
+# REAL stage 1 output from the bottleneck port, with OVS's default leaves: only the root is listed.
+TC_ROOT_ONLY_REAL = (
+    "qdisc htb 1: root refcnt 23 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000\n"
+)
+
+
+def test_leaf_qdisc_parser_reads_byte_and_packet_limits():
+    leaves = topo.parse_leaf_qdiscs(TC_LEAF_QDISCS_REAL)
+    assert set(leaves) == {"1:1", "1:2"}, "the HTB root is not a leaf"
+    assert leaves["1:1"] == {"kind": "bfifo", "handle": "100:", "limit_bytes": 62500,
+                             "limit_packets": None}
+    assert leaves["1:2"]["kind"] == "pfifo"
+    assert leaves["1:2"]["limit_packets"] == 43
+    assert leaves["1:2"]["limit_bytes"] is None, "packets must not be reported as bytes"
+
+
+def test_default_ovs_leaves_show_as_no_leaf_qdiscs():
+    """Stage 1's real bottleneck output. An empty result here means 'kernel default queue'."""
+    assert topo.parse_leaf_qdiscs(TC_ROOT_ONLY_REAL) == {}
+
+
+def test_leaf_handles_match_the_ovs_class_convention():
+    """apply_leaf_queue_limits attaches under tc_handle_for_queue(q); the parser keys by parent."""
+    leaves = topo.parse_leaf_qdiscs(TC_LEAF_QDISCS_REAL)
+    assert topo.tc_handle_for_queue(0) in leaves
+    assert topo.tc_handle_for_queue(1) in leaves
+
+
+# --------------------------------------------------------------------------- steady-state rate
+
+
+def test_rate_from_series_uses_only_the_observed_window():
+    # 437,500 bytes over exactly 1.0 s is 3.5 Mbps
+    series = [(100.0, 1_000_000), (100.5, 1_218_750), (101.0, 1_437_500)]
+    assert topo.rate_from_series(series) == pytest.approx(3_500_000)
+
+
+def test_rate_from_series_is_not_diluted_by_setup_time():
+    """The bug this replaces: dividing by wall time that included iperf3 setup read ~10 % low."""
+    series = [(200.0, 0), (208.0, 3_500_000)]           # 8 s of flow
+    whole_run_wall = 8.85                                 # what the old code divided by
+    old = 3_500_000 * 8.0 / whole_run_wall
+    assert topo.rate_from_series(series) == pytest.approx(3_500_000)
+    assert old < 0.91 * topo.rate_from_series(series)
+
+
+@pytest.mark.parametrize(
+    "series",
+    [
+        [],
+        [(1.0, 100)],
+        [(5.0, 100), (5.0, 900)],       # zero-length window
+        [(1.0, 900), (2.0, 100)],       # counter went backwards: it was reset
+    ],
+)
+def test_rate_from_series_refuses_meaningless_input(series):
+    assert topo.rate_from_series(series) is None
+
+
+# --------------------------------------------------------------------------- stage 1c design
+
+
+def test_mechanism_conditions_include_the_control_that_can_falsify_the_explanation():
+    """Condition C must be deeper than the ~134 KB socket bound observed in stage 1b, or it
+    cannot bring the backpressure back and would not test anything."""
+    from config_loader import load_config
+
+    cfg = load_config(scenario="burst")
+    conds = {c["name"]: c for c in topo.backpressure_conditions(cfg)}
+    assert conds["default_leaf_queue"]["limit_bytes"] is None
+    assert conds["default_leaf_queue"]["predicted"] == "BACKPRESSURE"
+
+    b = conds["bfifo_sim_limit"]
+    assert b["limit_bytes"] == int(cfg.sim.queue_limit_bytes), "must be the simulator's own value"
+    assert b["limit_bytes"] < 134_106, "must sit below the observed socket bound"
+    assert b["predicted"] == "OPEN_LOOP"
+
+    c = conds["bfifo_large_control"]
+    assert c["limit_bytes"] > 134_106, "must sit above the observed socket bound"
+    assert c["predicted"] == "BACKPRESSURE"

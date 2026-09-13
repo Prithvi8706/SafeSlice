@@ -4,15 +4,16 @@ Branch: `feature/mininet-testbed`. `main` is protected; this lands by PR.
 
 Status, 2026-09-13:
 
-- **Stage 1: partially valid, cap check void, re-run required.** Connectivity, the three OpenFlow
-  queues and the three tc HTB classes all passed and stand. The cap-binding check read iperf3's
-  sender rate as if it were receiver goodput (see section 2.6 and the correction note in
-  `net/topology/slice_topo.py:verify`), so its PASS does not count. Original report kept at
-  `results/summary/topo_check_superseded_sender_rate_bug.json`.
+- **Stage 1: PASS, on the corrected check.** The first run's cap check read iperf3's sender rate as
+  receiver goodput and was void (kept at
+  `results/summary/topo_check_superseded_sender_rate_bug.json`). The re-run reads the receiver
+  explicitly and passes: `results/summary/topo_check.json`.
 - **Stage 2: complete, CLEAN.** Idle RTT h1 to h4 through q0: p50 0.093 ms, p95 0.133 ms,
   p99 0.166 ms, max 7.850 ms, 1182 samples, 0 percent loss, 1226 ICMP packets counted in q0.
   `results/summary/noise_floor.json`. Unaffected by the stage 1 bug, since it used ping only.
-- **Stage 1b, added: backpressure diagnostic.** Section 2.6. Gates stage 3.
+- **Stage 1b, added: `BACKPRESSURE`.** Section 2.6 rule, result in section 2.7. The sender is held
+  at the cap with zero drops even at 4x offered load. The simulator does not model this.
+- **Stage 1c, added: mechanism test, pending.** Section 2.7. Gates stage 3.
 
 ---
 
@@ -152,6 +153,59 @@ Classification rule, fixed now, implemented in `slice_topo.py:classify_backpress
 | `OPEN_LOOP` | sender at 90 percent of requested or more at 2x and 4x | The simulator's arrival model holds. Proceed to stage 3 as planned. |
 | `BACKPRESSURE` | sender within 25 percent of the cap at 2x and 4x, whatever was requested | **The simulator's arrival model is wrong for this testbed.** Offered load cannot exceed the cap, tail drops become rare, the `w_drop` term reads near zero, and queues sit at a depth set by socket buffers rather than `sim.queue_limit_bytes`. This must be reported as a sim-vs-testbed divergence and resolved before stage 4, either by making the generator genuinely open-loop or by stating that the testbed is closed-loop and comparing on that basis. |
 | `MIXED` | neither | Report the table. Draw no conclusion. |
+
+### 2.7 Stage 1b result, and the mechanism test (recorded 2026-09-13, before stage 1c ran)
+
+**Stage 1b classified the testbed `BACKPRESSURE`.** `results/summary/backpressure_diagnosis.json`.
+eMBB cap 3.5 Mbps, UDP payload 1400 bytes:
+
+| Offered | Sender | Receiver | Lost | tc drops | Backlog max |
+|---|---|---|---|---|---|
+| 0.5x (control) | 1.750 | 1.750 | 0 | 0 | 0 B |
+| 1x | 3.500 | 3.383 | 0 | 0 | 112,476 B |
+| 2x | 3.480 | 3.399 | 0 | 0 | 132,664 B |
+| 4x | 3.530 | 3.399 | 0 | 0 | 134,106 B |
+
+Two things this establishes, and one it suggests.
+
+- **The shaper binds exactly.** HTB counts L2 bytes. A 1400-byte payload rides in a 1442-byte
+  frame (plus 8 UDP, 20 IPv4, 14 Ethernet), so a 3.5 Mbps ceil predicts 3.398 Mbps of payload
+  goodput. Measured at 2x and at 4x: 3.399 Mbps. The re-run stage 1 cap check also passes
+  (`results/summary/topo_check.json`).
+- **No packet is ever dropped, even at 4x the cap.** The sender stops instead.
+- **Suggested, not proven:** the largest backlog, 134,106 B, is 93.0 frames. The default socket
+  send buffer is 212,992 B, which is 2,290 B of socket accounting per frame, a plausible kernel
+  per-packet overhead. The default leaf queue holds 1000 packets. If packets queued in the switch
+  stay charged to the sending socket, which can happen when sender and switch share one kernel,
+  the socket buffer is exhausted at about 93 frames and the queue never fills far enough to drop.
+
+**Why the fix is not tuning the testbed to agree with the simulator.** A switch queue in a real
+network cannot block an application on another machine. The coupling above exists only because
+Mininet puts sender and switch in one kernel, so it is an emulation artefact. A real switch has a
+finite per-queue buffer and tail-drops when it is full. The simulator already declares that buffer,
+`sim.queue_limit_bytes: 62500`, set in week 1a and never tuned against anything. Using it is
+choosing an independently fixed value, not fitting one.
+
+**Stage 1c: the test, designed to confirm the mechanism rather than to find a setting that works.**
+Three leaf-queue conditions in one run, each swept 0.5x to 4x, classified by the section 2.6 rule:
+
+| Condition | Leaf queue | Predicted | Why |
+|---|---|---|---|
+| A | OVS default, 1000 packets | `BACKPRESSURE` | Reproduces stage 1b. |
+| B | bfifo 62,500 B | `OPEN_LOOP` | Queue fills before the ~134 KB socket bound, so it drops first. Also expected: tc drops above zero, sender near requested, backlog max at or under 62,500 B. |
+| C | bfifo 500,000 B | `BACKPRESSURE` | **The control.** Deeper than the socket bound, so the sender should block again. |
+
+Interpretation, fixed now:
+
+- A, B and C all as predicted: mechanism confirmed. All later stages use condition B's leaf queue,
+  and the report states the artefact and the correction.
+- B as predicted but C not: a small buffer fixes it, but the socket-buffer explanation is wrong.
+  Adopt B anyway, since a finite switch buffer is correct on realism grounds alone, and report the
+  mechanism as unexplained.
+- B not `OPEN_LOOP`: the queue depth is not the cause. Stop before stage 3.
+
+The same run also checks that `set_queue_max_rate` reaches the kernel shaper and how long it takes,
+and that the bfifo leaves survive a rate change. Stage 6 depends on both.
 
 ---
 

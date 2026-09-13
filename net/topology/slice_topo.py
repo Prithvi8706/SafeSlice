@@ -122,6 +122,60 @@ def apply_qos(iface: str, cfg, level_index: int) -> Dict[str, int]:
     return max_rates
 
 
+def apply_leaf_queue_limits(iface: str, limit_bytes: int) -> None:
+    """Attach a byte-limited tail-drop FIFO under each of the three HTB leaf classes.
+
+    WHY THIS EXISTS. Without it, OVS leaves the HTB leaves on the kernel's default queue, which
+    holds `txqueuelen` packets (1000 on this testbed). On a single-host emulation that queue is
+    deeper than the sending socket's buffer, so a full queue blocks the sending application
+    instead of dropping packets (stage 1b classified this BACKPRESSURE: zero drops at 4x the cap).
+    In a real network the sender is on another machine and a switch queue cannot block it, so that
+    behaviour is an emulation artefact. A finite per-queue buffer is what a real switch has.
+
+    The limit is `sim.queue_limit_bytes`, the per-queue tail-drop buffer the simulator declared in
+    week 1a and never tuned. It is used because it was chosen independently of any testbed result,
+    not because it makes the two agree; docs/PLAN_TESTBED.md section 2.7 records a control at a
+    larger limit that is predicted to bring the backpressure back.
+    """
+    for q in (0, 1, 2):
+        sh([
+            "tc", "qdisc", "replace", "dev", iface,
+            "parent", tc_handle_for_queue(q), "handle", f"{0x100 + q:x}:",
+            "bfifo", "limit", str(int(limit_bytes)),
+        ])
+
+
+def parse_leaf_qdiscs(out: str) -> Dict[str, Dict]:
+    """Parse `tc qdisc show dev <iface>` into {parent_handle: {kind, handle, limit_bytes}}.
+
+    Only child qdiscs (those with a `parent`) are returned; the HTB root is not a leaf. A limit
+    printed in packets ('1000p') is returned as limit_packets, not converted, since the byte size of
+    a packet is not known here.
+    """
+    leaves: Dict[str, Dict] = {}
+    for line in out.splitlines():
+        m = re.match(r"\s*qdisc (\S+) (\S+) parent (\S+)(.*)", line)
+        if not m:
+            continue
+        kind, handle, parent, rest = m.groups()
+        entry: Dict = {"kind": kind, "handle": handle, "limit_bytes": None, "limit_packets": None}
+        lim = re.search(r"\blimit (\d+)([bp]?)", rest)
+        if lim:
+            if lim.group(2) == "p":
+                entry["limit_packets"] = int(lim.group(1))
+            else:
+                entry["limit_bytes"] = int(lim.group(1))
+        leaves[parent] = entry
+    return leaves
+
+
+def read_leaf_qdiscs(iface: str) -> Dict[str, Dict]:
+    try:
+        return parse_leaf_qdiscs(sh(["tc", "qdisc", "show", "dev", iface]))
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def set_queue_max_rate(queue_index: int, bps: int) -> None:
     """Change one queue's max-rate in place. This is the actuator the agent drives.
 
@@ -505,11 +559,15 @@ def embb_probe(net, iface: str, offered_bps: float, duration_s: float = 8.0) -> 
     )
 
     backlog_samples: List[int] = []
+    sent_series: List[Tuple[float, int]] = []
     time.sleep(1.5)  # let the queue reach steady state before sampling
     while proc.poll() is None:
-        b = queue_backlog_bytes(iface).get(SLICE_QUEUE["embb"])
-        if b is not None:
-            backlog_samples.append(int(b))
+        cls = read_tc_classes(iface).get(handle, {})
+        now = time.time()
+        if cls.get("backlog_bytes") is not None:
+            backlog_samples.append(int(cls["backlog_bytes"]))
+        if cls.get("sent_bytes") is not None:
+            sent_series.append((now, int(cls["sent_bytes"])))
         time.sleep(0.5)
     proc.wait()
     elapsed = time.time() - t0
@@ -539,7 +597,13 @@ def embb_probe(net, iface: str, offered_bps: float, duration_s: float = 8.0) -> 
         ),
         "tc_class": handle,
         "tc_sent_bytes_delta": sent_delta,
-        "tc_sent_bps_l2": None if sent_delta is None else sent_delta * 8.0 / elapsed,
+        # Steady-state L2 rate, from counter samples taken while the flow was running. An earlier
+        # version divided the whole-run byte delta by wall time, which includes iperf3 connection
+        # setup and teardown (8.6 to 9.3 s against an 8 s flow) and read about 10 percent low.
+        "tc_sent_bps_l2": rate_from_series(sent_series),
+        "tc_rate_window_s": (
+            sent_series[-1][0] - sent_series[0][0] if len(sent_series) >= 2 else None
+        ),
         "tc_dropped_pkts_delta": _delta("dropped_pkts"),
         "tc_ceil": after.get("ceil"),
         "tc_ceil_bps": parse_tc_rate(after.get("ceil")),
@@ -549,6 +613,21 @@ def embb_probe(net, iface: str, offered_bps: float, duration_s: float = 8.0) -> 
         ),
         "backlog_bytes_max": max(backlog_samples) if backlog_samples else None,
     }
+
+
+def rate_from_series(series: List[Tuple[float, int]]) -> Optional[float]:
+    """Bits per second from (timestamp, cumulative byte counter) samples. Pure, unit tested.
+
+    Uses the first and last sample only, so the rate covers exactly the window in which the
+    counter was observed. Returns None for fewer than two samples, a non-positive window, or a
+    counter that went backwards (which means it was reset and the difference is meaningless).
+    """
+    if len(series) < 2:
+        return None
+    (t0, b0), (t1, b1) = series[0], series[-1]
+    if t1 <= t0 or b1 < b0:
+        return None
+    return (b1 - b0) * 8.0 / (t1 - t0)
 
 
 def classify_backpressure(rows: List[Dict], cap_bps: float) -> Tuple[str, str]:
@@ -599,22 +678,89 @@ def classify_backpressure(rows: List[Dict], cap_bps: float) -> Tuple[str, str]:
     return "MIXED", "sender neither tracked the request nor stayed near the cap"
 
 
-def diagnose_backpressure(net, iface: str, cfg, programmed: Dict[str, int]) -> Dict:
-    """Stage 1b. Sweep the offered eMBB rate across the cap and classify the sender's behaviour."""
-    cap = float(programmed["embb"])
+def check_actuator(iface: str, queue_index: int, new_bps: int, timeout_s: float = 3.0) -> Dict:
+    """Change one queue's max-rate through OVS and time how long until tc shows the new ceil.
+
+    Stage 6 drives the live policy loop through exactly this call once per second, so two things
+    must hold: the change must reach the kernel shaper, and it must do so well inside one control
+    interval. docs/PLAN_TESTBED.md section 6 lists this as a risk to be measured, not assumed.
+    """
+    handle = tc_handle_for_queue(queue_index)
+    t0 = time.time()
+    set_queue_max_rate(queue_index, new_bps)
+    observed = None
+    while time.time() - t0 < timeout_s:
+        observed = parse_tc_rate(read_tc_classes(iface).get(handle, {}).get("ceil"))
+        if observed is not None and abs(observed - new_bps) <= 0.02 * new_bps:
+            return {"requested_bps": new_bps, "observed_ceil_bps": observed,
+                    "took_effect": True, "latency_ms": (time.time() - t0) * 1000.0}
+        time.sleep(0.02)
+    return {"requested_bps": new_bps, "observed_ceil_bps": observed,
+            "took_effect": False, "latency_ms": None}
+
+
+#: Buffer conditions for the stage 1c mechanism test, with predictions recorded before running.
+#: See docs/PLAN_TESTBED.md section 2.7. `None` means OVS's default leaf queue.
+def backpressure_conditions(cfg) -> List[Dict]:
+    sim_limit = int(cfg.sim.queue_limit_bytes)
+    return [
+        {"name": "default_leaf_queue", "limit_bytes": None, "predicted": "BACKPRESSURE"},
+        {"name": "bfifo_sim_limit", "limit_bytes": sim_limit, "predicted": "OPEN_LOOP"},
+        {"name": "bfifo_large_control", "limit_bytes": 500_000, "predicted": "BACKPRESSURE"},
+    ]
+
+
+def diagnose_backpressure(net, iface: str, cfg, level_index: int) -> Dict:
+    """Stages 1b and 1c. For each buffer condition, sweep offered eMBB rate across the cap,
+    classify the sender's behaviour, and check the actuator still works with that buffer in place.
+    """
     multipliers = (0.5, 1.0, 2.0, 4.0)
-    rows = []
-    for m in multipliers:
-        print(f"[slice_topo] probing eMBB at {m:g}x cap = {m * cap / 1e6:.2f} Mbps ...", flush=True)
-        rows.append(embb_probe(net, iface, offered_bps=m * cap, duration_s=8.0))
-        time.sleep(2.0)  # let the queue drain before the next rate
-    label, reason = classify_backpressure(rows, cap)
+    results = []
+    for cond in backpressure_conditions(cfg):
+        print(f"\n[slice_topo] condition {cond['name']} "
+              f"(leaf limit {cond['limit_bytes'] or 'OVS default'}), "
+              f"predicted {cond['predicted']}", flush=True)
+        programmed = apply_qos(iface, cfg, level_index)   # fresh hierarchy, no leftover leaves
+        if cond["limit_bytes"] is not None:
+            apply_leaf_queue_limits(iface, cond["limit_bytes"])
+        cap = float(programmed["embb"])
+        leaves_before = read_leaf_qdiscs(iface)
+
+        rows = []
+        for m in multipliers:
+            print(f"[slice_topo]   eMBB at {m:g}x cap = {m * cap / 1e6:.2f} Mbps ...", flush=True)
+            rows.append(embb_probe(net, iface, offered_bps=m * cap, duration_s=8.0))
+            time.sleep(2.0)  # let the queue drain before the next rate
+
+        actuator_down = check_actuator(iface, SLICE_QUEUE["embb"], int(cap * 0.8))
+        leaves_after_change = read_leaf_qdiscs(iface)
+        actuator_restore = check_actuator(iface, SLICE_QUEUE["embb"], int(cap))
+
+        label, reason = classify_backpressure(rows, cap)
+        expected_handle = tc_handle_for_queue(SLICE_QUEUE["embb"])
+        results.append({
+            **cond,
+            "embb_cap_bps": cap,
+            "multipliers": list(multipliers),
+            "rows": rows,
+            "classification": label,
+            "classification_reason": reason,
+            "prediction_met": label == cond["predicted"],
+            "leaf_qdiscs_before": leaves_before,
+            "leaf_qdiscs_after_rate_change": leaves_after_change,
+            "leaf_limit_survived_rate_change": (
+                True if cond["limit_bytes"] is None
+                else leaves_after_change.get(expected_handle, {}).get("limit_bytes")
+                == cond["limit_bytes"]
+            ),
+            "actuator_change": actuator_down,
+            "actuator_restore": actuator_restore,
+        })
+
     return {
-        "embb_cap_bps": cap,
-        "multipliers": list(multipliers),
-        "rows": rows,
-        "classification": label,
-        "classification_reason": reason,
+        "conditions": results,
+        "all_predictions_met": all(r["prediction_met"] for r in results),
+        "prediction_source": "docs/PLAN_TESTBED.md section 2.7, recorded before this run",
         "transport_facts": transport_facts(net, iface),
     }
 
@@ -655,35 +801,43 @@ def main(argv=None) -> int:
         print(f"[slice_topo] programmed max-rates (bps): {programmed}\n")
 
         if args.diagnose_backpressure:
-            diag = diagnose_backpressure(net, iface, cfg, programmed)
-            out = REPO_ROOT / (args.report or "results/summary/backpressure_diagnosis.json")
+            diag = diagnose_backpressure(net, iface, cfg, args.level)
+            out = REPO_ROOT / (args.report or "results/summary/backpressure_mechanism.json")
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(diag, indent=2, sort_keys=True), encoding="utf-8")
 
             def _mbps(v):
                 return "   n/a" if v is None else f"{v / 1e6:6.3f}"
 
-            print("\n" + "=" * 92)
-            print(f"  eMBB cap {diag['embb_cap_bps'] / 1e6:.2f} Mbps.  All rates in Mbps.")
-            print("  mult  requested  sender  receiver  tc_l2_sent  iperf_loss%  tc_drops  "
-                  "backlog_med_B  backlog_max_B")
-            for m, r in zip(diag["multipliers"], diag["rows"]):
-                ip = r["iperf3"]
-                loss = ip["lost_percent"]
-                print(f"  {m:4g}  {_mbps(r['offered_bps_requested'])}     "
-                      f"{_mbps(ip['sender_bps'])}  {_mbps(ip['receiver_bps'])}    "
-                      f"{_mbps(r['tc_sent_bps_l2'])}      "
-                      f"{'  n/a' if loss is None else f'{loss:6.2f}'}     "
-                      f"{r['tc_dropped_pkts_delta']!s:>7}  "
-                      f"{r['backlog_bytes_median']!s:>13}  {r['backlog_bytes_max']!s:>13}")
-            print("-" * 92)
-            print(f"  CLASSIFICATION  {diag['classification']}")
-            print(f"  {diag['classification_reason']}")
-            print("=" * 92)
+            for c in diag["conditions"]:
+                print("\n" + "=" * 96)
+                print(f"  {c['name']}   leaf limit {c['limit_bytes'] or 'OVS default'} B   "
+                      f"eMBB cap {c['embb_cap_bps'] / 1e6:.2f} Mbps   (rates in Mbps)")
+                print("  mult  requested  sender  receiver  tc_l2  iperf_loss%  tc_drops  "
+                      "backlog_med_B  backlog_max_B")
+                for m, r in zip(c["multipliers"], c["rows"]):
+                    ip = r["iperf3"]
+                    loss = ip["lost_percent"]
+                    print(f"  {m:4g}  {_mbps(r['offered_bps_requested'])}     "
+                          f"{_mbps(ip['sender_bps'])}  {_mbps(ip['receiver_bps'])}  "
+                          f"{_mbps(r['tc_sent_bps_l2'])}     "
+                          f"{'  n/a' if loss is None else f'{loss:6.2f}'}  "
+                          f"{r['tc_dropped_pkts_delta']!s:>8}  "
+                          f"{r['backlog_bytes_median']!s:>13}  {r['backlog_bytes_max']!s:>13}")
+                a, b = c["actuator_change"], c["actuator_restore"]
+                print("-" * 96)
+                print(f"  CLASSIFICATION {c['classification']:<18} predicted {c['predicted']:<14} "
+                      f"{'MET' if c['prediction_met'] else 'NOT MET'}")
+                print(f"  actuator: change took effect {a['took_effect']} "
+                      f"in {a['latency_ms'] and round(a['latency_ms'])} ms, "
+                      f"restore {b['took_effect']} in {b['latency_ms'] and round(b['latency_ms'])} ms;"
+                      f"  leaf limit survived rate change: {c['leaf_limit_survived_rate_change']}")
+            print("\n" + "=" * 96)
+            print(f"  ALL PREDICTIONS MET: {diag['all_predictions_met']}")
             tf = diag["transport_facts"]
-            print(f"  bottleneck txqueuelen {tf['bottleneck_txqueuelen']}   "
-                  f"wmem_default {tf['net_core_wmem_default']}   wmem_max {tf['net_core_wmem_max']}")
-            print(f"  bottleneck qdisc:\n    " + (tf["bottleneck_qdisc"] or "n/a").replace("\n", "\n    "))
+            print(f"  txqueuelen {tf['bottleneck_txqueuelen']}   wmem_default "
+                  f"{tf['net_core_wmem_default']}   wmem_max {tf['net_core_wmem_max']}")
+            print("=" * 96)
             print(f"[slice_topo] wrote {out}")
             return 0
 
