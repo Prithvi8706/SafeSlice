@@ -83,12 +83,25 @@ def clear_qos(iface: Optional[str] = None) -> None:
     sh(["ovs-vsctl", "--all", "destroy", "queue"], check=False)
 
 
-def apply_qos(iface: str, cfg, level_index: int) -> Dict[str, int]:
-    """Create the HTB QoS hierarchy on `iface` with three queues.
+#: Sentinel: take the per-queue buffer from config rather than from the caller.
+LEAF_LIMIT_FROM_CONFIG = object()
+
+
+def apply_qos(
+    iface: str, cfg, level_index: int, leaf_limit_bytes=LEAF_LIMIT_FROM_CONFIG
+) -> Dict[str, int]:
+    """Create the HTB QoS hierarchy on `iface` with three queues, each with a finite buffer.
 
     Returns the caps in bits per second that were programmed, so the caller can assert against
     what it asked for rather than trusting that it landed.
+
+    `leaf_limit_bytes` defaults to `sim.queue_limit_bytes`. That default is the outcome of stage
+    1c (docs/PLAN_TESTBED.md section 2.7): with OVS's default leaf queue this single-host testbed
+    is closed-loop, blocking senders instead of dropping, which no real switch can do to a remote
+    host. Pass None only to reproduce that artefact deliberately, as the stage 1c control does.
     """
+    if leaf_limit_bytes is LEAF_LIMIT_FROM_CONFIG:
+        leaf_limit_bytes = int(cfg.sim.queue_limit_bytes)
     capacity = int(cfg.link.capacity_bps)
     alloc = allocation_from_level(cfg, level_index)
 
@@ -119,6 +132,8 @@ def apply_qos(iface: str, cfg, level_index: int) -> Dict[str, int]:
             f"other-config:max-rate={max_rates[name]}",
         ]
     sh(cmd)
+    if leaf_limit_bytes is not None:
+        apply_leaf_queue_limits(iface, int(leaf_limit_bytes))
     return max_rates
 
 
@@ -720,9 +735,9 @@ def diagnose_backpressure(net, iface: str, cfg, level_index: int) -> Dict:
         print(f"\n[slice_topo] condition {cond['name']} "
               f"(leaf limit {cond['limit_bytes'] or 'OVS default'}), "
               f"predicted {cond['predicted']}", flush=True)
-        programmed = apply_qos(iface, cfg, level_index)   # fresh hierarchy, no leftover leaves
-        if cond["limit_bytes"] is not None:
-            apply_leaf_queue_limits(iface, cond["limit_bytes"])
+        # Fresh hierarchy per condition. The leaf limit is passed explicitly, including None for
+        # the default-queue control, so the control cannot silently pick up the config default.
+        programmed = apply_qos(iface, cfg, level_index, leaf_limit_bytes=cond["limit_bytes"])
         cap = float(programmed["embb"])
         leaves_before = read_leaf_qdiscs(iface)
 

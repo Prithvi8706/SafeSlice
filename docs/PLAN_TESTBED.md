@@ -13,7 +13,10 @@ Status, 2026-09-13:
   `results/summary/noise_floor.json`. Unaffected by the stage 1 bug, since it used ping only.
 - **Stage 1b, added: `BACKPRESSURE`.** Section 2.6 rule, result in section 2.7. The sender is held
   at the cap with zero drops even at 4x offered load. The simulator does not model this.
-- **Stage 1c, added: mechanism test, pending.** Section 2.7. Gates stage 3.
+- **Stage 1c, added: all three predictions met.** Section 2.8. The finite 62,500 B per-queue buffer
+  is now the default in `slice_topo.apply_qos` for every later stage.
+- **Stage 2 remains valid under that change.** It measured idle RTT with empty queues, where
+  queue depth does not matter.
 
 ---
 
@@ -206,6 +209,45 @@ Interpretation, fixed now:
 
 The same run also checks that `set_queue_max_rate` reaches the kernel shaper and how long it takes,
 and that the bfifo leaves survive a rate change. Stage 6 depends on both.
+
+### 2.8 Stage 1c result (2026-09-13)
+
+`results/summary/backpressure_mechanism.json`. **All three predictions met.**
+
+| Condition | Class | 4x: sender | 4x: iperf3 lost / tc drops | Backlog max, all rates |
+|---|---|---|---|---|
+| A, OVS default | `BACKPRESSURE` | 3.464 Mbps | 0 / 0 | 134,106 B = 93 frames |
+| B, bfifo 62,500 B | `OPEN_LOOP` | 13.997 Mbps | 7,536 / 7,537 | 62,006 B = 43 frames |
+| C, bfifo 500,000 B | `BACKPRESSURE` | 3.530 Mbps | 0 / 0 | 134,106 B = 93 frames |
+
+What it establishes:
+
+1. **All loss in condition B happens at the bottleneck queue.** Receiver-side iperf3 loss and the
+   switch's tc drop counter are independent measurements, and they agree to within one packet at
+   every rate: 30/30, 2,529/2,530, 7,536/7,537.
+2. **The buffer behaves exactly as specified.** 62,500 B holds floor(62,500 / 1,442) = 43 frames =
+   62,006 B, and the measured maximum was 62,006 B at every rate above the cap.
+3. **The ~134 KB ceiling is independent of the queue limit.** Conditions A (1000 packets) and C
+   (500,000 B) and the stage 1b run all stopped at exactly 134,106 B. So whether this testbed is
+   open-loop is decided by queue depth against a fixed ~93-frame bound, not by the queue limit.
+4. **The actuator is fit for a 1 s control loop.** Every `set_queue_max_rate` change reached the tc
+   ceil in 21 to 62 ms, at least 16 times inside the control interval, and every bfifo leaf
+   survived the change.
+
+What it does not establish: that the 93-frame bound is specifically the socket send buffer. That
+remains the best explanation (212,992 B / 93 = 2,290 B of accounting per frame) but the socket
+buffer was never varied. The project's decision does not depend on it.
+
+One measurement column is still unreliable: `tc_l2`. Three readings came in about 10 percent low
+(3.161, 3.176, 3.154 Mbps) even after the stage 1b correction, most likely because the sampling
+window can run past the end of the flow while iperf3 exchanges its final report. No conclusion
+above uses it. Stage 4 bounds the counter window to the known flow interval instead.
+
+**Decision, per the rule in section 2.7:** condition B's finite buffer is the testbed default from
+here on, and the report states the emulation artefact and its correction. This changes one thing
+the simulator comparison has to account for: the testbed and the simulator now share the same
+per-queue tail-drop buffer by construction, so any divergence found in stage 5 cannot be blamed
+on buffer size.
 
 ---
 
