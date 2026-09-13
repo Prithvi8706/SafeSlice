@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "details": {
+    "urllc": {
+      "offered_l2_mbps": 2.0,
+      "delivered_l2_mbps": 2.0145123776289604,
+      "delivered_over_offered": 1.0072561888144802,
+      "sender_over_offered": 0.9982362496705107,
+      "drops": 0,
+      "ok": true
+    },
+    "embb": {
+      "offered_l2_mbps": 3.0,
+      "delivered_l2_mbps": 3.000007400839531,
+      "delivered_over_offered": 1.0000024669465104,
+      "sender_over_offered": 0.9999467850441942,
+      "drops": 0,
+      "ok": true
+    },
+    "be": {
+      "offered_l2_mbps": 3.0,
+      "delivered_l2_mbps": 3.000007400839531,
+      "delivered_over_offered": 1.0000024669465104,
+      "sender_over_offered": 0.9999596341123951,
+      "drops": 0,
+      "ok": true
+    }
+  },
+  "row": {
+    "window_s_nominal": 14.0,
+    "urllc_goodput_l2_mbps": 2.0145123776289604,
+    "urllc_offered_l2_mbps": 2.0,
+    "urllc_drops": 0,
+    "urllc_backlog_median_bytes": 0.0,
+    "urllc_backlog_max_bytes": 1442,
+    "urllc_iperf_parse_ok": true,
+    "urllc_iperf_sender_l2_mbps": 1.9964724993410214,
+    "urllc_iperf_receiver_l2_mbps": 1.996421958807289,
+    "embb_goodput_l2_mbps": 3.000007400839531,
+    "embb_offered_l2_mbps": 3.0,
+    "embb_drops": 0,
+    "embb_backlog_median_bytes": 0.0,
+    "embb_backlog_max_bytes": 0,
+    "embb_iperf_parse_ok": true,
+    "embb_iperf_sender_l2_mbps": 2.9998403551325827,
+    "embb_iperf_receiver_l2_mbps": 2.999771362609352,
+    "be_goodput_l2_mbps": 3.000007400839531,
+    "be_offered_l2_mbps": 3.0,
+    "be_drops": 0,
+    "be_backlog_median_bytes": 0.0,
+    "be_backlog_max_bytes": 0,
+    "be_iperf_parse_ok": true,
+    "be_iperf_sender_l2_mbps": 2.9998789023371852,
+    "be_iperf_receiver_l2_mbps": 2.9997457161978787,
+    "link_util": 0.8014527179308022,
+    "urllc_rtt_p50_ms": 0.12075,
+    "urllc_rtt_p95_ms": 3.136399999999986,
+    "urllc_rtt_p99_of_window_p95_ms": 4.688079999999984,
+    "urllc_rtt_pooled_p50_ms": 0.118,
+    "urllc_rtt_pooled_p95_ms": 1.34,
+    "urllc_rtt_pooled_p99_ms": 4.5003999999999955,
+    "urllc_rtt_pooled_max_ms": 13.1,
+    "urllc_rtt_windows_used": 14,
+    "urllc_rtt_windows_thin": 0,
+    "urllc_ping_delivered_pct": 91.78571428571429,
+    "urllc_ping_loss_pct_whole_run": 0.0,
+    "valid": true,
+    "programmed_max_rates_bps": {
+      "urllc": 10000000,
+      "embb": 8000000,
+      "be": 4500000
+    }
+  }
+}

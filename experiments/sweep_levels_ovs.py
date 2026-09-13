@@ -56,6 +56,7 @@ from traffic.generator import (  # noqa: E402
     counter_window_delta,
     l2_bps_from_payload,
     per_window_rtt,
+    ping_delivery,
 )
 
 #: Calibration load: every flow under its cap at the most permissive eMBB level, total under
@@ -166,12 +167,13 @@ def summarize_run(
     row["urllc_rtt_windows_used"] = rtt["n_windows_used"]
     row["urllc_rtt_windows_thin"] = rtt["n_windows_thin"]
 
-    # Delivered probes as a share of those sent inside the window. Latency percentiles describe
-    # only delivered probes, so this number must always travel with them.
-    expected = (t_hi - t_lo) / ping_interval_s
-    row["urllc_ping_delivered_pct"] = (
-        None if expected <= 0 else min(100.0, 100.0 * rtt["n_samples"] / expected)
-    )
+    # Delivered probes as a share of those sent inside the window, from sequence-number gaps.
+    # Latency percentiles describe only delivered probes, so this must always travel with them.
+    # An earlier version divided by window / requested interval and measured ping's pacing instead
+    # of loss; see traffic/generator.py:ping_delivery.
+    delivery = ping_delivery(load.get("ping_samples", []), t_lo, t_hi)
+    row["urllc_ping_delivered_pct"] = delivery["delivered_pct"]
+    row["urllc_ping_effective_interval_s"] = delivery["effective_interval_s"]
     summary = load.get("ping_summary") or {}
     row["urllc_ping_loss_pct_whole_run"] = summary.get("loss_pct")
 

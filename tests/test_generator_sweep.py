@@ -273,3 +273,60 @@ def test_aggregate_excludes_invalid_runs_and_says_how_many():
     assert agg[0]["embb_goodput_l2_mbps"]["n"] == 3
     assert agg[1]["n_valid_runs"] == 0
     assert agg[1]["embb_goodput_l2_mbps"] is None
+
+
+# --------------------------------------------------------------------------- ping delivery (bug fix)
+
+from traffic.generator import ping_delivery  # noqa: E402
+
+
+def test_delivery_is_100_percent_when_ping_paces_slower_than_requested():
+    """The quick-sweep bug: 0 % loss, but ping sent every 0.055 s instead of 0.05 s, and the old
+    count-based metric reported about 91 % delivered."""
+    samples = _pings(lambda t: 1.0, T0, T0 + 24, interval=0.055)
+    d = ping_delivery(samples, T0, T0 + 24)
+    assert d["delivered_pct"] == pytest.approx(100.0)
+    assert d["effective_interval_s"] == pytest.approx(0.055, rel=1e-6)
+    old_metric = 100.0 * len(samples) / (24 / 0.05)
+    assert old_metric == pytest.approx(90.9, abs=0.5), "reproduces the reading that was wrong"
+
+
+def test_delivery_counts_real_gaps_in_the_sequence():
+    samples = _pings(lambda t: 1.0, T0, T0 + 10)
+    lossy = [s for s in samples if s[1] % 10 != 3]   # every tenth probe lost
+    assert ping_delivery(lossy, T0, T0 + 10)["delivered_pct"] == pytest.approx(90.0, abs=0.5)
+
+
+def test_delivery_with_too_few_samples_is_none_not_zero():
+    assert ping_delivery([], T0, T0 + 10)["delivered_pct"] is None
+    assert ping_delivery([(T0 + 1, 5, 1.0)], T0, T0 + 10)["delivered_pct"] is None
+
+
+# --------------------------------------------------------------------------- stage 4a rule
+
+from experiments.diagnose_rtt_tail import SCHEDULE, classify_rtt_tail  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "normal, rt, expected",
+    [
+        ([0.4, 0.6], [0.3, 0.3], "NO_TAIL"),          # tail did not reproduce
+        ([4.7, 5.1], [0.2, 0.3], "TOOL_SCHEDULING"),  # RT removes it entirely
+        ([4.7, 5.1], [3.9, 4.2], "PATH_JITTER"),      # RT barely helps
+        ([4.0, 4.0], [2.0, 2.0], "PATH_JITTER"),      # exactly half counts as path
+        ([4.7, 5.1], [1.5, 1.7], "PARTIAL"),          # RT removes most, not all
+        ([], [0.2], "INCONCLUSIVE"),
+    ],
+)
+def test_rtt_tail_rule_implements_the_preregistered_bands(normal, rt, expected):
+    assert classify_rtt_tail(normal, rt)[0] == expected
+
+
+def test_rtt_tail_schedule_alternates_priorities_and_includes_an_idle_reference():
+    names = [n for n, _loaded, _prefix in SCHEDULE]
+    assert names[0] == "idle_normal"
+    loaded = [n for n in names if n.startswith("loaded")]
+    assert loaded == ["loaded_normal", "loaded_rt", "loaded_normal", "loaded_rt"]
+    for name, loaded_flag, prefix in SCHEDULE:
+        assert loaded_flag == name.startswith("loaded")
+        assert bool(prefix) == name.endswith("_rt")

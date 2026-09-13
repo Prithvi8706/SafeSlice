@@ -154,6 +154,34 @@ def per_window_rtt(
     return out
 
 
+def ping_delivery(samples: List[Tuple[float, int, float]], t_lo: float, t_hi: float) -> Dict:
+    """Probe delivery inside the window, from ICMP sequence-number gaps. Pure, unit tested.
+
+    CORRECTED 2026-09-13. The first version divided the reply count by window / requested
+    interval. ping does not pace at exactly the requested interval on this testbed (stage 2: about
+    0.055 s per probe when 0.05 s was requested), so that ratio read 90.6 to 98.5 percent in the
+    first quick sweep while ping's own summary showed 0.0 percent loss at every level. It was
+    measuring ping's timer, not the network. Sequence numbers are assigned per probe sent, so the
+    span between the first and last sequence seen in the window is the number sent, whatever the
+    pacing.
+
+    Also returns the effective interval, so pacing drift is recorded rather than hidden.
+    """
+    inside = [s for s in samples if t_lo <= s[0] < t_hi]
+    if len(inside) < 2:
+        return {"sent_in_window": None, "received_in_window": len(inside),
+                "delivered_pct": None, "effective_interval_s": None}
+    seqs = sorted({s[1] for s in inside})
+    span = seqs[-1] - seqs[0] + 1
+    times = [s[0] for s in inside]
+    return {
+        "sent_in_window": span,
+        "received_in_window": len(seqs),
+        "delivered_pct": 100.0 * len(seqs) / span,
+        "effective_interval_s": (max(times) - min(times)) / (span - 1) if span > 1 else None,
+    }
+
+
 # --------------------------------------------------------------------------- testbed side effects
 
 
@@ -196,11 +224,18 @@ def stop_servers(net) -> None:
 
 
 def launch_load(
-    net, offered_l2_bps: Dict[str, float], duration_s: float, ping_interval_s: float = 0.05
+    net,
+    offered_l2_bps: Dict[str, float],
+    duration_s: float,
+    ping_interval_s: float = 0.05,
+    ping_prefix: str = "",
 ) -> Dict:
     """Start one UDP flow per slice and a URLLC ping, concurrently. Returns handles for
     `collect_load`. Output goes to files, not pipes: a 120 s ping writes far more than a pipe
-    buffer holds, and an unread full pipe would stall the process being measured."""
+    buffer holds, and an unread full pipe would stall the process being measured.
+
+    `ping_prefix` is prepended to the ping command, for example "chrt -f 99 " to run the probe at
+    real-time priority. Slices offered zero are not started, so an all-zero load is a ping alone."""
     workdir = Path(tempfile.mkdtemp(prefix="safeslice_load_"))
     procs = {}
     for s in SLICES:
@@ -219,8 +254,8 @@ def launch_load(
     h1, h4 = net[SLICE_HOSTS["urllc"][0]], net[SLICE_HOSTS["urllc"][1]]
     procs["ping"] = h1.popen(
         ["sh", "-c",
-         f"ping -D -n -i {ping_interval_s} -w {int(math.ceil(duration_s))} {h4.IP()} "
-         f"> {workdir}/ping.txt 2>&1"],
+         f"{ping_prefix}ping -D -n -i {ping_interval_s} -w {int(math.ceil(duration_s))} "
+         f"{h4.IP()} > {workdir}/ping.txt 2>&1"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     return {"t_launch": time.time(), "workdir": str(workdir), "procs": procs,

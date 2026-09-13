@@ -16,7 +16,10 @@ Status, 2026-09-13:
 - **Stage 1c, added: all three predictions met.** Section 2.8. The finite 62,500 B per-queue buffer
   is now the default in `slice_topo.apply_qos` for every later stage.
 - **Stage 2 remains valid under that change.** It measured idle RTT with empty queues, where
-  queue depth does not matter.
+  queue depth does not matter. It does not describe the host under load; see section 2.9.
+- **Stages 3 and 4, quick run: calibration passed; slicing works; two problems found.** Section 2.9.
+  One metric bug fixed, and a latency tail under load that queueing cannot explain.
+- **Stage 4a, added: attribute the tail, pending.** Section 2.9. Gates the full sweep.
 
 ---
 
@@ -248,6 +251,62 @@ here on, and the report states the emulation artefact and its correction. This c
 the simulator comparison has to account for: the testbed and the simulator now share the same
 per-queue tail-drop buffer by construction, so any divergence found in stage 5 cannot be blamed
 on buffer size.
+
+### 2.9 First quick sweep, and the latency tail (recorded 2026-09-13, before stage 4a ran)
+
+`results/summary/ovs_level_sweep_quick.json`. **One repeat of 30 s per level, so no intervals and no
+conclusions beyond direction.** Calibration passed: every flow delivered within 1 percent of
+offered with zero drops, and every sender reached its target.
+
+| eMBB level | eMBB L2 Mbps | BE L2 Mbps | URLLC L2 Mbps | URLLC drops | URLLC p50 ms | URLLC pooled p99 ms | URLLC max ms |
+|---|---|---|---|---|---|---|---|
+| 0.20 | 1.997 | 3.998 | 3.014 | 0 | 0.11 | 4.66 | 35.70 |
+| 0.35 | 3.250 | 3.633 | 3.015 | 0 | 2.89 | 17.42 | 32.20 |
+| 0.50 | 3.982 | 2.763 | 2.947 | 0 | 3.28 | 13.92 | 22.50 |
+| 0.65 | 4.364 | 2.572 | 3.016 | 0 | 4.71 | 15.87 | 28.20 |
+| 0.80 | 5.085 | 1.858 | 3.015 | 0 | 7.52 | 20.66 | 27.30 |
+
+What holds even at one repeat:
+
+- **The slicing works on real OVS.** eMBB goodput rises with every level, Best Effort falls with
+  every level, URLLC median latency rises with every level, and at 0.20 eMBB delivers 1.997 Mbps
+  against its 2.0 Mbps cap. This is the demonstration the faculty asked for.
+- **URLLC throughput is fully protected.** 3.0 Mbps delivered and zero drops at every level. What
+  the eMBB level takes from URLLC is latency, not throughput.
+
+Two problems it exposed:
+
+1. **A metric bug, now fixed.** `urllc_ping_delivered_pct` read 90.6 to 98.5 percent while ping's
+   own summary showed 0.0 percent loss at every level. It divided the reply count by window /
+   requested interval, and ping paces slower than requested on this host. It now uses sequence
+   number gaps (`traffic/generator.py:ping_delivery`) and records the effective interval.
+2. **A latency tail that queueing cannot explain.** At level 0.20 URLLC is uncongested: median
+   backlog zero, median RTT 0.11 ms, the same as idle. Yet pooled p99 was 4.66 ms and max 35.7 ms,
+   against 0.17 ms and 7.85 ms idle in stage 2. Same path, empty queue; the difference is 17 Mbps of
+   other traffic on the same host. It also makes the per-window p95 non-monotone across levels.
+   This matters directly: the reward and the guardrail's fast path use p95 against a 7 ms hard
+   limit, and an uncongested p99 of 4.66 ms would put the guardrail partly at the mercy of the host.
+   Note also that stage 2's `CLEAN` verdict was measured idle; the bands of
+   `docs/TESTBED_SETUP.md` section 4 applied to this loaded but uncongested p99 would fall in `STOP`.
+   The rule was written for the idle case and is not being retroactively applied, but the gap has
+   to be resolved rather than ignored.
+
+**Stage 4a, the test.** `experiments/diagnose_rtt_tail.py`. At eMBB level 0.20 so URLLC stays
+uncongested, under the full burst load, measure URLLC RTT with ping at normal priority and at
+real-time priority (`chrt -f 99`, confirmed available on this host), alternated idle, normal, RT,
+normal, RT, 30 s each. Real-time priority removes delay in the ping process itself and leaves delay
+in the kernel packet path. Rule, on mean pooled p99 across the two runs of each priority,
+implemented in `diagnose_rtt_tail.py:classify_rtt_tail`:
+
+| Label | Condition | Consequence |
+|---|---|---|
+| `NO_TAIL` | normal-priority p99 under 1 ms | The quick sweep's tail did not reproduce. Proceed to the full sweep. |
+| `TOOL_SCHEDULING` | RT p99 under 1 ms | The tail was the probe. All URLLC latency measurement moves to RT-priority ping. The quick sweep's tail numbers are artefacts. |
+| `PATH_JITTER` | RT p99 at least half of normal p99 | The tail is real packet-path delay on this emulator. p95 and p99 cannot be compared to the simulator at the 7 ms scale; the comparison in stage 5 is made on p50, the testbed SLO is re-derived from the loaded uncongested floor, and both are stated as limitations. |
+| `PARTIAL` | anything else | More than half the tail was the probe and a real residual remains. Adopt RT ping, report the residual as the loaded floor. |
+
+The run also records URLLC backlog and drops in every loaded condition. If URLLC was not actually
+uncongested, part of the tail could be queueing, and the output says so.
 
 ---
 
