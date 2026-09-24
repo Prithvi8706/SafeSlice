@@ -168,6 +168,7 @@ results/summary/   seed-averaged tables and figures, all regenerable
 ## Documentation
 
 - **`docs/REPORT.md` — the write-up: abstract, method, results, limitations, conclusion.**
+- `docs/PROJECT_REPORT_EASY.md` — the whole project start to end in plain language, with likely viva questions.
 - `docs/DECK_REVISIONS.md` — slide-by-slide reconciliation of the proposal deck with what was built.
 - `docs/DESIGN.md` — the design decisions, each with the reasoning and the limitation.
 - `docs/EXPERIMENTS.md` — the protocol, the metric definitions, and the results tables.
