@@ -325,7 +325,7 @@ Score difference compared with the `threshold` rule (positive means we did bette
 - We **predicted this in week one**, before writing any learning code, and committed in writing
   to report it honestly instead of tuning until it went away.
 
-### Finding 2: It is not just faster, it is also safer
+### Finding 2: It is not just better, it is also safer
 
 The pre-trained LinUCB wins **with fewer SLA violations**, so it does not win by taking more
 risks. Change in violation rate compared with `threshold` (negative means fewer violations):
