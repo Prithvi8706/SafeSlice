@@ -415,12 +415,46 @@ while `threshold` cannot be told to care.
 
 ## 9. Simulator versus real testbed
 
-**Never run.** The testbed was not built. This is the experiment that would decide whether any
-conclusion in this document transfers to real Open vSwitch, and it is the single largest gap in
-the project. `docs/REPORT_OUTLINE.md` section 8.
+*As first written: "Never run. The testbed was not built." Superseded 2026-09-13; full record in
+`docs/PLAN_TESTBED.md` sections 2.11 and 2.12, write-up in `docs/REPORT.md` section 7.*
+
+Real OVS, constant burst-phase load (URLLC 3, eMBB 10, BE 4 Mbps L2), finite 62,500 B buffers,
+3 repeats x 120 s per level, against the simulator at the identical load with jitter off, the same
+buffers and the measured 0.093 ms base latency. Mean ± 95 % t interval over the three repeats:
+
+| eMBB level | eMBB Mbps | BE Mbps | URLLC median RTT (ms) | Simulator `demand_proportional` URLLC median (ms) |
+|---|---|---|---|---|
+| 0.20 | 1.995 ± 0.009 | 3.997 ± 0.015 | 0.10 ± 0.03 | 0.09 |
+| 0.35 | 3.270 ± 0.030 | 3.638 ± 0.010 | 2.63 ± 0.21 | 1.31 |
+| 0.50 | 4.082 ± 0.083 | 2.812 ± 0.020 | 3.65 ± 0.27 | 3.12 |
+| 0.65 | 4.424 ± 0.015 | 2.465 ± 0.022 | 4.44 ± 0.44 | 4.94 |
+| 0.80 | 5.087 ± 0.018 | 1.796 ± 0.013 | 7.67 ± 0.24 | 6.76 |
+
+Normalised mean absolute error across the five levels, rule recorded before the run (a mode tracks a
+metric at 0.25 or less):
+
+| Mode | eMBB goodput | BE goodput | URLLC median | Mean |
+|---|---|---|---|---|
+| `demand_proportional` | 0.085 | 0.158 | 0.087 | **0.110** |
+| `equal` | 0.167 | 0.256 | 0.476 | 0.300 |
+| `min_rate_proportional` | 0.096 | 0.117 | 0.476 | 0.230 |
+
+**Classification `TRACKS_demand_proportional`**, the mode every table above was produced under. It
+becomes `PARTIAL` at a threshold of 0.15 or stricter. At every congested level the simulator
+underestimates eMBB goodput by 5 to 12 % and overestimates Best Effort by 7 to 39 %, each error larger
+than the testbed's own interval. URLLC p95 is not compared: the simulator's equals its median at
+constant load, and the testbed's is mostly host jitter. Scope: one operating point, constant load.
 
 ## 10. Noise floor
 
-**Never measured.** Requires the testbed. The SLO used throughout (`target 5.0 ms`, `hard 7.0 ms`)
-was derived from the simulator's own achievable latency range (`docs/DESIGN.md` section 3), not
-from hardware.
+*As first written: "Never measured. Requires the testbed." Superseded 2026-09-13.*
+
+60 s of idle URLLC RTT through the bottleneck: **p50 0.093 ms, p95 0.133, p99 0.166, max 7.850**,
+1,182 samples, zero loss (`results/summary/noise_floor.json`). The simulator's `link.base_rtt_ms` of
+2.0 ms is a modelling constant about twenty times larger; the comparison in section 9 uses the measured
+value. Under load with the URLLC queue empty the median is unchanged but p99 rises to about 5 ms
+(`docs/PLAN_TESTBED.md` section 2.10), so on this host the median is the usable latency statistic.
+
+The simulator study's SLO (`target 5.0 ms`, `hard 7.0 ms` on p95) is unchanged and still derived from
+the simulator's own range. The testbed's own SLO, re-derived on the median from the section 9 sweep, is
+in `config/testbed.yaml` and is used only by the live policy loop.

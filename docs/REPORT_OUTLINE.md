@@ -5,6 +5,10 @@ allowed to make. Numbers live in `docs/EXPERIMENTS.md`; this file is the argumen
 
 Status: populated from the simulator suite. No testbed work exists. See section 8.
 
+**UPDATE 2026-10-08:** the status line above is superseded. A Mininet / Open vSwitch testbed exists on
+branch `feature/mininet-testbed` and is written up in `docs/REPORT.md` section 7. The two sentences in
+this file that it falsifies are annotated where they stand, in section 0 and section 3.
+
 ---
 
 ## 0. The one-paragraph version
@@ -21,6 +25,11 @@ reward weights finds the converged policy wins all 15 weight combinations, separ
 result is not an artefact of how the reward was weighted. Decisions cost roughly four times an
 array lookup and stay under a quarter of a millisecond against a one-second control interval.
 Whether any of this transfers to real Open vSwitch is **untested** — the testbed was never built.
+
+*Update 2026-10-08: now tested at one operating point.* On real OVS, raising the eMBB cap raises URLLC
+median latency about 77-fold while URLLC throughput stays protected, and of three sharing modes only
+the simulator's `demand_proportional` reproduces that. The simulator is right in kind and biased in
+degree (`docs/REPORT.md` section 7).
 
 ---
 
@@ -79,6 +88,11 @@ This list exists because each of these is a sentence that would be easy to write
 - **"Validated on Mininet / Open vSwitch / a real SDN testbed."** Nothing here has touched any of
   them. There is no `OvsCliBackend`, no Ryu app, no topology, no iperf3 traffic. The word
   "emulation" must not be used for what is a simulation.
+  *Update 2026-10-08: the facts changed, the prohibition mostly did not.* The topology, traffic,
+  `OvsCliBackend` and a real-OVS comparison now exist. What may be said is that the simulator's
+  central assumption **was checked against** real OVS at one operating point. "Validated" still may
+  not be said of the policy results, which are simulator results; nor "SDN controller", since there
+  is no OpenFlow controller (`docs/REPORT.md` section 7.1).
 - **"Regret against the optimal allocation."** The Oracle is the best **phase-static** allocation
   under the same guardrail. A policy that varies within a phase can beat it, so the number can
   be negative. Say "regret against the best phase-static allocation" or do not say regret.

@@ -6,6 +6,11 @@ run on WSL2 Ubuntu 24.04 rather than the VirtualBox VM this file assumes. For th
 remains true that `OvsCliBackend`, `RyuBackend` and the live policy loop on the testbed do not exist;
 what exists is the topology, the traffic generator and the fixed-level experiments.
 
+**UPDATE 2026-10-08:** `OvsCliBackend` (`net/ovs_cli_backend.py`) and the live policy loop
+(`experiments/run_policies_ovs.py`) now exist too. Only `RyuBackend` and the Ryu notes in section 4
+still describe software that is not in this repository, deliberately (`docs/PLAN_TESTBED.md`
+section 7).
+
 ## STATUS: sections 1, 2, 4 and 5 describe a testbed that was never built
 
 Read this before following anything below. **There are no real backends.** `OvsCliBackend`,

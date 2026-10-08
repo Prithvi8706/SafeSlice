@@ -171,6 +171,15 @@ the testbed SLO from it. **It was never written and never run.** The testbed thr
 therefore not `TBD` in the sense of "pending"; it is absent, and the SLO used throughout is the
 simulator-derived one above.
 
+**UPDATE 2026-10-08: both now exist.** `experiments/measure_noise_floor.py` was written and run
+(idle p50 0.093 ms, p99 0.166 ms; `docs/EXPERIMENTS.md` section 10). The deck's 15 ms is not right
+for the testbed either: under load the per-second p95 carries 4 to 12 ms of host jitter with the
+URLLC queue empty, so a testbed SLO cannot be stated on p95 at all. It was re-derived on the
+per-second median from the real-OVS level sweep, by the same placement rule as above: warn 3.0,
+target 3.5, hard 4.0 ms (`config/testbed.yaml`, `docs/PLAN_TESTBED.md` section 2.13). The simulator
+study keeps the p95 SLO above, so sim and testbed SLA violation rates remain not comparable, as this
+section said they would be.
+
 The contextual structure the project depends on does exist. Measured on `sawtooth.yaml`, seed 0,
 at the most aggressive action level, URLLC p95 is 4.09 ms when URLLC's offered load is light and
 9.20 ms when it is heavy. The safe action therefore depends on an observable feature, which is

@@ -134,8 +134,9 @@ the simulator half is intact on this machine:
 pytest -q
 ```
 
-Expected: **121 passed on `main`, 134 on `feature/mininet-testbed`** (the branch adds 13 parser
-tests). Verified on this machine on 2026-09-12: 121 passed on `main` under Python 3.12.3,
+Expected: **121 passed on `main`, 252 on `feature/mininet-testbed`** as of 2026-10-08 (the
+branch adds the parser, generator, sweep, comparison and live-backend tests; it was 134 when this
+file was first written). Verified on this machine on 2026-09-12: 121 passed on `main` under Python 3.12.3,
 numpy 2.5.3, pandas 3.0.5, scipy 1.18.1.
 
 Note for the report's reproducibility section: those are major-version jumps from the numpy 1.26.4
