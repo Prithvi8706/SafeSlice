@@ -142,6 +142,9 @@ reward:
 context:
   ewma_alpha: 0.30          # weight on the newest sample
   clip_max: 3.0             # features are clipped to [0, clip_max] after normalization
+  # Instantaneous latency statistic for the guardrail's fast path and the rtt_p95_norm feature.
+  # config/testbed.yaml switches it to the median for the live testbed loop.
+  fast_rtt_statistic: urllc_rtt_ms_p95
 
 sim:
   substep_s: 0.01           # queue simulation granularity inside one control interval

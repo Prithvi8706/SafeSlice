@@ -1,0 +1,126 @@
+{
+  "backend": "sim",
+  "scenario": "burst",
+  "seed": 0,
+  "duration_s": 300.0,
+  "warmup_s": 30.0,
+  "order": [
+    "threshold",
+    "static_safe",
+    "static_equal",
+    "linucb_pretrained"
+  ],
+  "rule": "docs/PLAN_TESTBED.md section 2.13",
+  "testbed_overlay": {
+    "link": {
+      "base_rtt_ms": 0.093
+    },
+    "sla": {
+      "target_ms": 3.5,
+      "hard_ms": 4.0
+    },
+    "guardrail": {
+      "warn_ms": 3.0
+    },
+    "context": {
+      "fast_rtt_statistic": "urllc_rtt_ms_p50"
+    },
+    "reward": {
+      "rtt_statistic": "urllc_rtt_ms_p50"
+    },
+    "policy": {
+      "threshold": {
+        "up_ms": 3.5,
+        "down_ms": 2.0
+      }
+    }
+  },
+  "config_hash_eval": "e0570866fd8bb59b",
+  "config_hash_train": "85c7b9604c559abb",
+  "runs": {
+    "threshold": {
+      "csv": "results\\testbed_policies\\sim\\threshold_burst_0.csv",
+      "metrics": {
+        "policy": "threshold",
+        "scenario": "burst",
+        "seed": 0,
+        "n_steps": 270,
+        "urllc_rtt_p50": 0.093,
+        "urllc_rtt_p95": 3.123303030303031,
+        "urllc_rtt_p99": 6.759666666666667,
+        "sla_violation_rate": 0.014814814814814815,
+        "embb_goodput_mbps": 2.8109368722055152,
+        "be_goodput_mbps": 3.6636700216720235,
+        "total_drops": 82576,
+        "guardrail_intervention_rate": 0.08888888888888889,
+        "decision_latency_mean_ms": 0.0781722222222408,
+        "decision_latency_p99_ms": 0.2226489999996684,
+        "mean_reward": 0.16407440515608576,
+        "link_util_mean": 0.9474573223843868
+      }
+    },
+    "static_safe": {
+      "csv": "results\\testbed_policies\\sim\\static_safe_burst_0.csv",
+      "metrics": {
+        "policy": "static_safe",
+        "scenario": "burst",
+        "seed": 0,
+        "n_steps": 270,
+        "urllc_rtt_p50": 0.093,
+        "urllc_rtt_p95": 0.093,
+        "urllc_rtt_p99": 0.093,
+        "sla_violation_rate": 0.0,
+        "embb_goodput_mbps": 2.0,
+        "be_goodput_mbps": 4.0,
+        "total_drops": 93293,
+        "guardrail_intervention_rate": 0.0,
+        "decision_latency_mean_ms": 0.055971481481482135,
+        "decision_latency_p99_ms": 0.14679300000022263,
+        "mean_reward": 0.11268222222222225,
+        "link_util_mean": 0.9000000000000004
+      }
+    },
+    "static_equal": {
+      "csv": "results\\testbed_policies\\sim\\static_equal_burst_0.csv",
+      "metrics": {
+        "policy": "static_equal",
+        "scenario": "burst",
+        "seed": 0,
+        "n_steps": 270,
+        "urllc_rtt_p50": 1.3051212121212108,
+        "urllc_rtt_p95": 1.3051212121212108,
+        "urllc_rtt_p99": 1.3051212121212108,
+        "sla_violation_rate": 0.0,
+        "embb_goodput_mbps": 2.583625359644001,
+        "be_goodput_mbps": 3.9447419027232615,
+        "total_drops": 81366,
+        "guardrail_intervention_rate": 0.0,
+        "decision_latency_mean_ms": 0.05141407407408081,
+        "decision_latency_p99_ms": 0.13810199999973344,
+        "mean_reward": 0.19589145971276467,
+        "link_util_mean": 0.9528353794353795
+      }
+    },
+    "linucb_pretrained": {
+      "csv": "results\\testbed_policies\\sim\\linucb_pretrained_burst_0.csv",
+      "metrics": {
+        "policy": "linucb_pretrained",
+        "scenario": "burst",
+        "seed": 0,
+        "n_steps": 270,
+        "urllc_rtt_p50": 3.123303030303031,
+        "urllc_rtt_p95": 3.123303030303031,
+        "urllc_rtt_p99": 3.123303030303031,
+        "sla_violation_rate": 0.0,
+        "embb_goodput_mbps": 2.9032533705220134,
+        "be_goodput_mbps": 3.623488117524162,
+        "total_drops": 81403,
+        "guardrail_intervention_rate": 0.0,
+        "decision_latency_mean_ms": 0.14019888888891308,
+        "decision_latency_p99_ms": 0.3910749999980112,
+        "mean_reward": 0.21813442502237063,
+        "link_util_mean": 0.9526707818012505
+      }
+    }
+  }
+}

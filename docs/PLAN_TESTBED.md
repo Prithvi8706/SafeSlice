@@ -492,6 +492,84 @@ URLLC's latency behaves demand-driven. That is a hypothesis for future work, not
 load, since a steady queue has no spread, while the testbed's p95 is 8 to 24 ms of mostly host jitter.
 The two are not comparable and are not compared.
 
+### 2.13 Stage 6 design and reading rule (recorded 2026-10-08, before any stage 6 run)
+
+**Decision, taken by the user on 2026-10-08: a median-based testbed SLO.** Section 2.10 showed a
+p95-driven guardrail on this host would react to host jitter. Three options were put to the user:
+re-derive the SLO on the per-second median, keep p95 and raise the limits above the loaded floor,
+or skip stage 6. The first was chosen.
+
+What that changes, all in `config/testbed.yaml`, which the simulator study never reads:
+
+- The guardrail's fast path reads the per-second median instead of p95, through a new key
+  `context.fast_rtt_statistic`. Its default in `config/default.yaml` is `urllc_rtt_ms_p95`, and four
+  simulator runs across four policies and scenarios hash identically before and after the change.
+  The slow path was already an EWMA of the median.
+- The reward's SLA terms read the median (`reward.rtt_statistic`).
+- Limits re-derived from the stage 4 medians by the simulator's own placement rule:
+  **warn 3.0, target 3.5, hard 4.0 ms**; threshold policy up 3.5, down 2.0 ms. The arithmetic is in
+  the file. The user was quoted "about warn 3.0 / target 3.5 / hard 4.2" before the derivation was
+  written out; 4.0 is used because it is exactly the gap between the level 0.50 and 0.65 intervals.
+- `link.base_rtt_ms` is the measured 0.093 ms.
+
+**Protocol.** `experiments/run_policies_ovs.py`. Four policies, `static_safe`, `static_equal`,
+`threshold`, `linucb_pretrained`, one 300 s run each, burst scenario, seed 0, jitter off so iperf3 can
+follow the load (eMBB alternates 2 and 10 Mbps every 40 and 35 s; URLLC 3 and BE 4 constant), order
+shuffled from the seed. Each runs through `run_once` unchanged, with `net/ovs_cli_backend.py` as the
+backend. `linucb_pretrained` is trained in the simulator on the held-out seeds with jitter on, under
+the testbed overlay, then frozen: on the testbed this is a sim-to-real transfer. **The same script with
+`--backend sim` is run first, and its numbers are recorded below as the prediction before the testbed
+run exists.**
+
+**Loop-health rule**, per testbed run, over post-warm-up steps (`classify_loop`):
+
+| Check | Passes if |
+|---|---|
+| on time | at least 95 % of intervals within 10 % of 1 s |
+| RTT measured | at least 99 % of steps have 5 or more ping replies |
+| actuation confirmed | at least 99 % of steps show the programmed eMBB ceiling in tc, within 1 % |
+| counters | at least 99 % of steps have readable, non-decreasing tc counters |
+| generator | every iperf3 segment's sender within 5 % of its requested rate |
+
+All pass: `LOOP_OK`, and the run counts as the demonstration. Any fail: `LOOP_DEGRADED`, the failed
+checks are named, and the run's policy numbers are reported only with that label beside them.
+
+**How the policy results are read.** One run per policy, so there are no intervals and no ranking
+claim can be statistically separated. Stated now so it is not decided after seeing the data:
+
+1. **The demonstration** is the loop label: the same policy code ran a real switch at 1 s.
+2. **Per policy**, each testbed metric is put beside the simulator's prediction: eMBB and BE goodput,
+   URLLC median, SLA violation rate, guardrail intervention rate, mean reward. Differences are
+   described, not tested. The section 2.12 biases predict the testbed will show more eMBB and less BE
+   than the simulator, and a higher URLLC median at level 0.35.
+3. **Ranking by mean reward:** `RANKING_MATCHES` if the testbed order equals the predicted order,
+   otherwise `RANKING_DIFFERS` with the pairs that swapped. With n = 1 per policy, a swap between
+   policies whose rewards differ by less than 0.01 is reported as not distinguishable rather than as a
+   reversal.
+4. **Not claimed in any case:** that any policy beats another on the testbed, or that testbed SLA
+   violation rates compare with the simulator study's. They use a different statistic and limit.
+
+**The prediction (simulator, recorded 2026-10-08 before the testbed run).**
+`results/summary/policy_live_sim.json`, per-step logs in `results/testbed_policies/sim/`. Post-warm-up,
+270 steps per policy; the URLLC median is the median over steps of the per-step median:
+
+| Policy | Mean reward | SLA violations | Guardrail interventions | eMBB Mbps | BE Mbps | URLLC median (ms) | Level held in eMBB bursts |
+|---|---|---|---|---|---|---|---|
+| `linucb_pretrained` | **0.2181** | 0.00 % | 0.00 % | 2.903 | 3.623 | 3.12 | 0.50 (136 of 140 steps) |
+| `static_equal` | 0.1959 | 0.00 % | 0.00 % | 2.584 | 3.945 | 1.31 | 0.35 |
+| `threshold` | 0.1641 | 1.48 % | 8.89 % | 2.811 | 3.664 | 0.09 | 0.50 (116 of 140), oscillating |
+| `static_safe` | 0.1127 | 0.00 % | 0.00 % | 2.000 | 4.000 | 0.09 | 0.20 |
+
+Predicted order: `linucb_pretrained` > `static_equal` > `threshold` > `static_safe`.
+
+What to watch for, from what is already measured. `linucb_pretrained` and `threshold` both spend eMBB
+bursts at level 0.50, where the simulator predicts a 3.12 ms median, under the 3.5 ms target. Stage 4
+measured 3.65 ± 0.27 ms on the switch at that level, over the target and within 0.35 ms of the 4.0 ms
+hard limit. If the per-second median scatters across 4.0 ms, the testbed will show hard overrides and
+violations the simulator does not predict, and the two learned or reactive policies will lose reward
+relative to `static_equal`. That would be the section 2.12 bias at level 0.50 showing up in control
+behaviour, not a new finding about the policies.
+
 ---
 
 ## 3. Stages, in order, each with a verification you will see

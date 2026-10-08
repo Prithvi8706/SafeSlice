@@ -67,6 +67,10 @@ class ContextBuilder:
         self.capacity_bps = float(cfg.link.capacity_bps)
         self.hard_ms = float(cfg.sla.hard_ms)
         self.queue_limit_bytes = float(cfg.sim.queue_limit_bytes)
+        # The instantaneous latency statistic behind rtt_p95_norm and Context.rtt_p95_ms. p95 in
+        # the simulator study; the testbed overlay (config/testbed.yaml) sets the median, because
+        # host jitter dominates p95 there. The names keep "p95" so the CSV schema is unchanged.
+        self.fast_stat = str(cfg.context.fast_rtt_statistic)
         # Reference drop count: packets the link could carry in one control interval. Gives
         # drops_norm a physical meaning rather than an arbitrary scale.
         self.drop_ref_pkts = max(
@@ -90,7 +94,7 @@ class ContextBuilder:
             [
                 1.0,
                 self._rtt_ewma / self.hard_ms,
-                float(tel.urllc_rtt_ms_p95) / self.hard_ms,
+                float(getattr(tel, self.fast_stat)) / self.hard_ms,
                 float(tel.urllc_tx_bps) / self.capacity_bps,
                 float(tel.embb_goodput_bps) / self.capacity_bps,
                 float(tel.be_goodput_bps) / self.capacity_bps,
@@ -106,7 +110,7 @@ class ContextBuilder:
         ctx = Context(
             vector=vector,
             rtt_ewma_ms=float(self._rtt_ewma),
-            rtt_p95_ms=float(tel.urllc_rtt_ms_p95),
+            rtt_p95_ms=float(getattr(tel, self.fast_stat)),
             step_idx=self._step,
         )
         self._step += 1

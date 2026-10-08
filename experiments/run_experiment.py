@@ -95,7 +95,8 @@ ORACLE_NAME = "oracle"
 
 ALL_POLICY_NAMES = sorted(set(POLICIES) | set(PRETRAINED) | {ORACLE_NAME})
 
-BACKENDS = ("sim",)  # ovs_cli and ryu land in Week 1b and Week 4
+BACKENDS = ("sim",)  # the CLI's choices. OvsCliBackend needs a live Mininet network, so it is
+                     # built by experiments/run_policies_ovs.py and handed in via `backend=`.
 
 
 # --------------------------------------------------------------------------- environment
@@ -228,6 +229,7 @@ def run_once(
     overrides: Optional[Dict] = None,
     policy=None,
     learn: bool = True,
+    backend=None,
 ):
     """Execute one run and return (csv_path, RunMetrics, rows).
 
@@ -235,17 +237,21 @@ def run_once(
     instead of building a fresh one. It is how pretrain() reuses this loop for its training
     runs, and it is the reason this function does NOT reset a policy it was handed: resetting
     would erase exactly the state the caller spent nine runs accumulating.
+
+    `backend` likewise lets a caller supply an already-started backend, which is how the live
+    testbed loop runs through this same function. `backend_name` then only labels the run.
     """
     if policy is None and policy_name not in ALL_POLICY_NAMES:
         raise KeyError(f"unknown policy {policy_name!r}; known: {ALL_POLICY_NAMES}")
-    if backend_name not in BACKENDS:
+    if backend is None and backend_name not in BACKENDS:
         raise KeyError(f"unknown backend {backend_name!r}; available now: {BACKENDS}")
 
     if cfg is None:
         cfg = load_config(scenario=scenario, overrides=overrides)
 
     trace = build_trace(cfg, seed)
-    backend = SimBackend(cfg, trace)
+    if backend is None:
+        backend = SimBackend(cfg, trace)
 
     if policy is None:
         if policy_name in PRETRAINED:

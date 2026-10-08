@@ -1,0 +1,55 @@
+# Testbed overlay for stage 6, the live policy loop on real Open vSwitch (docs/PLAN_TESTBED.md
+# section 2.13). Merged over default.yaml and the scenario file as overrides. The simulator study
+# never reads this file; its config, and therefore its 320-run results, are unchanged.
+#
+# WHY THE SLO STATISTIC CHANGES. On this testbed host load alone puts the per-second URLLC p95 at
+# 4 to 12 ms with the URLLC queue empty (stage 4a, docs/PLAN_TESTBED.md section 2.10), against a
+# 7 ms hard limit. A p95-driven guardrail would react to the laptop, not the queue. The per-second
+# MEDIAN separates every eMBB level with non-overlapping intervals (stage 4), so the guardrail's
+# fast path, the reward's SLA terms and the threshold policy all read the median here.
+#
+# WHY THESE NUMBERS. Re-derived from the stage 4 sweep with the same placement rule the simulator's
+# SLO used (config/default.yaml, sla). Measured URLLC median RTT by level, mean and 95 % interval,
+# n = 3 (results/summary/ovs_level_sweep.json):
+#
+#   level 0.20 -> 0.10 (0.07 - 0.14)    0.35 -> 2.63 (2.42 - 2.84)    0.50 -> 3.65 (3.38 - 3.92)
+#   level 0.65 -> 4.44 (4.00 - 4.88)    0.80 -> 7.67 (7.43 - 7.91)
+#
+#   hard_ms 4.0   The simulator puts its hard limit between levels 0.50 and 0.65, so policies land
+#                 on different sides of it. 4.0 is the gap between those two levels' intervals
+#                 (0.50 upper bound 3.92, 0.65 lower bound 4.00).
+#   warn_ms 3.0   The simulator's warn and target sit between levels 0.35 and 0.50, at fractions
+#   target  3.5   0.32 and 0.86 of the way from 0.35 (3.39 ms) to 0.50 (5.27 ms). The same fractions
+#                 of 2.63 -> 3.65 give 2.96 and 3.51, rounded to 3.0 and 3.5.
+#   down_ms 2.0   The threshold policy's step-up point. The simulator's 3.0 sits 0.28 of the way
+#                 down from level 0.35 (3.39) to level 0.20 (2.00); the same fraction of
+#                 2.63 -> 0.10 gives 1.92, rounded to 2.0. up_ms stays equal to the target.
+#
+# Recorded on 2026-10-08, before any policy ran on the testbed and before any simulator run under
+# this file. Not adjusted after seeing either.
+#
+# CONSEQUENCE. Testbed SLA violation rates are against a 4.0 ms MEDIAN limit and are not comparable
+# to the simulator study's rates against a 7.0 ms p95 limit. They are compared only with the
+# simulator run under this same file.
+
+link:
+  # Stage 2 idle median (results/summary/noise_floor.json), replacing the 2.0 ms modelling constant.
+  base_rtt_ms: 0.093
+
+sla:
+  target_ms: 3.5
+  hard_ms: 4.0
+
+guardrail:
+  warn_ms: 3.0
+
+context:
+  fast_rtt_statistic: urllc_rtt_ms_p50
+
+reward:
+  rtt_statistic: urllc_rtt_ms_p50
+
+policy:
+  threshold:
+    up_ms: 3.5
+    down_ms: 2.0

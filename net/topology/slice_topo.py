@@ -48,6 +48,10 @@ from net.backend import allocation_from_level  # noqa: E402
 # channel unmatched would drop it into the default queue, which is q0, and put iperf3 signalling
 # traffic inside the protected URLLC slice.
 SLICE_PORTS = {"urllc": 5201, "embb": 5202, "be": 5203}
+# A second server port per slice, classified identically. The live policy loop (stage 6) changes a
+# slice's offered rate at phase boundaries by starting a new iperf3 client; alternating ports lets
+# the next client start while the previous test is still closing, instead of finding its server busy.
+SLICE_ALT_PORTS = {"urllc": 5211, "embb": 5212, "be": 5213}
 SLICE_QUEUE = {"urllc": 0, "embb": 1, "be": 2}
 
 # h1 -> h4 carries URLLC, h2 -> h5 eMBB, h3 -> h6 Best Effort.
@@ -222,11 +226,12 @@ def install_flows(switch: str = "s1") -> None:
     """
     sh(["ovs-ofctl", "-O", "OpenFlow13", "del-flows", switch])
     flows = []
-    for name, port in SLICE_PORTS.items():
+    for name in SLICE_PORTS:
         q = SLICE_QUEUE[name]
-        flows.append(f"priority=300,udp,tp_dst={port},actions=set_queue:{q},normal")
-        flows.append(f"priority=300,tcp,tp_dst={port},actions=set_queue:{q},normal")
-        flows.append(f"priority=300,tcp,tp_src={port},actions=set_queue:{q},normal")
+        for port in (SLICE_PORTS[name], SLICE_ALT_PORTS[name]):
+            flows.append(f"priority=300,udp,tp_dst={port},actions=set_queue:{q},normal")
+            flows.append(f"priority=300,tcp,tp_dst={port},actions=set_queue:{q},normal")
+            flows.append(f"priority=300,tcp,tp_src={port},actions=set_queue:{q},normal")
     flows.append(f"priority=250,icmp,actions=set_queue:{SLICE_QUEUE['urllc']},normal")
     flows.append("priority=0,actions=normal")
     for f in flows:

@@ -203,24 +203,27 @@ def sample_tc(iface: str, until_ts: float, period_s: float = 1.0) -> Dict[str, D
         time.sleep(max(0.0, min(period_s, until_ts - time.time())))
 
 
-def start_servers(net) -> None:
-    """One persistent iperf3 server per slice on its receiver. They serve tests sequentially."""
+def start_servers(net, ports: Optional[Dict[str, int]] = None) -> None:
+    """One persistent iperf3 server per slice on its receiver. They serve tests sequentially.
+    `ports` defaults to SLICE_PORTS; the live policy loop also starts SLICE_ALT_PORTS."""
+    ports = ports or SLICE_PORTS
     for s in SLICES:
         receiver = net[SLICE_HOSTS[s][1]]
-        receiver.cmd(f"iperf3 -s -p {SLICE_PORTS[s]} -D --logfile /tmp/safeslice_srv_{s}.log")
+        receiver.cmd(f"iperf3 -s -p {ports[s]} -D --logfile /tmp/safeslice_srv_{s}_{ports[s]}.log")
     for s in SLICES:
         receiver = net[SLICE_HOSTS[s][1]]
         for _ in range(50):
-            if f":{SLICE_PORTS[s]}" in receiver.cmd("ss -ltn"):
+            if f":{ports[s]}" in receiver.cmd("ss -ltn"):
                 break
             time.sleep(0.1)
         else:
-            raise RuntimeError(f"iperf3 server for {s} did not start on port {SLICE_PORTS[s]}")
+            raise RuntimeError(f"iperf3 server for {s} did not start on port {ports[s]}")
 
 
-def stop_servers(net) -> None:
+def stop_servers(net, ports: Optional[Dict[str, int]] = None) -> None:
+    ports = ports or SLICE_PORTS
     for s in SLICES:
-        net[SLICE_HOSTS[s][1]].cmd(f"pkill -f 'iperf3 -s -p {SLICE_PORTS[s]}' || true")
+        net[SLICE_HOSTS[s][1]].cmd(f"pkill -f 'iperf3 -s -p {ports[s]}' || true")
 
 
 def launch_load(
