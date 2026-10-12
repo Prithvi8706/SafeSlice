@@ -269,6 +269,20 @@ def test_rate_changes_alternate_server_ports_at_the_phase_boundary(rig):
     assert f"-b {int(round(payload_bps_for_l2(10.0e6)))}" in clients[1]
 
 
+def test_close_lets_clients_finish_before_stopping_them(rig):
+    """Killing an iperf3 client before it writes its report loses the report (stage 6 smoke test)."""
+    backend, clock, switch, net, cfg = rig
+    backend.reset()
+    order = []
+    for p in backend._clients:
+        p.wait = lambda timeout=None, p=p: order.append(("wait", p))
+        p.terminate = lambda p=p: order.append(("terminate", p))
+    backend.close()
+    waits = [i for i, (kind, _) in enumerate(order) if kind == "wait"]
+    terms = [i for i, (kind, _) in enumerate(order) if kind == "terminate"]
+    assert len(waits) >= len(backend._clients) and max(waits[:len(backend._clients)]) < min(terms)
+
+
 def test_link_util_is_capped_at_one_and_the_raw_value_kept(rig):
     backend, clock, switch, net, cfg = rig
     switch.rates["1:1"], switch.rates["1:3"] = 4e6, 4.5e6  # 8.5 + 3.5 Mbps > capacity

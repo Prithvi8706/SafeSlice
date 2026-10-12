@@ -63,6 +63,12 @@ from traffic.generator import SLICES, payload_bps_for_l2
 #: A programmed eMBB ceiling counts as confirmed if tc reports it within this fraction.
 CEIL_TOLERANCE = 0.01
 
+#: How long close() lets the iperf3 clients finish on their own before stopping them. The last
+#: clients are scheduled to end with the run itself, and iperf3 writes its JSON report only after
+#: its final exchange with the server; killing it before then loses the report (stage 6 smoke test,
+#: docs/PLAN_TESTBED.md section 2.13).
+CLIENT_GRACE_S = 10.0
+
 
 # --------------------------------------------------------------------------- pure functions
 
@@ -154,6 +160,7 @@ class OvsCliBackend(NetworkBackend):
         self.workdir = Path(tempfile.mkdtemp(prefix="safeslice_live_"))
         self.ping_path = self.workdir / "ping.txt"
         self._procs: List = []
+        self._clients: List = []
         self.step_log: List[Dict] = []
         self.segment_reports: List[Dict] = []
         self._segment_files: List[Dict] = []
@@ -283,6 +290,12 @@ class OvsCliBackend(NetworkBackend):
         """Stop every process this backend started and parse what the iperf3 clients reported."""
         if not getattr(self, "_started", False):
             return
+        deadline = time.monotonic() + CLIENT_GRACE_S
+        for p in self._clients:
+            try:
+                p.wait(timeout=max(0.1, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired:
+                pass
         for p in self._procs:
             if p.poll() is None:
                 p.terminate()
@@ -328,12 +341,14 @@ class OvsCliBackend(NetworkBackend):
                 duration = max(1, int(round(seg["n_steps"] * self.interval_s)))
                 payload = int(round(payload_bps_for_l2(seg["bps"])))
                 out = self.workdir / f"{s}_{idx}.json"
-                self._procs.append(sender.popen(
+                client = sender.popen(
                     ["sh", "-c",
                      f"iperf3 -c {receiver.IP()} -p {port} -u -b {payload} "
                      f"-l {UDP_PAYLOAD_BYTES} -t {duration} -J > {out} 2> {out}.err"],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                ))
+                )
+                self._procs.append(client)
+                self._clients.append(client)
                 self._segment_files.append({
                     "slice": s, "segment": idx, "start_step": step, "port": port,
                     "requested_l2_bps": seg["bps"], "duration_s": duration, "json": str(out),

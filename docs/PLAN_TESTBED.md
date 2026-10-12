@@ -570,6 +570,18 @@ violations the simulator does not predict, and the two learned or reactive polic
 relative to `static_equal`. That would be the section 2.12 bias at level 0.50 showing up in control
 behaviour, not a new finding about the policies.
 
+**Smoke test, 2026-10-12: a harness bug, fixed.** `--quick` (4 x 90 s) returned `LOOP_OK` for
+`threshold` and `LOOP_DEGRADED` for the other three, all on the single check `senders_on_target`. Every
+other check was 100 % in all four runs: intervals on time, RTT measured, eMBB ceiling confirmed in tc,
+counters readable. The failing segments were the ones scheduled to end with the run, and each had
+`parse_ok: False`. Every segment that did report was on target (URLLC 2.913 Mbps payload against
+2.913 requested). Cause: `OvsCliBackend.close()` terminated the iperf3 clients the moment the run
+ended, before iperf3 had written its JSON report, so whether a report survived was a race. Fix:
+`close()` now lets clients finish on their own for up to 10 s first (`CLIENT_GRACE_S`, with a test).
+The rule above is unchanged. The void result is kept at
+`results/summary/policy_live_ovs_cli_quick_superseded_client_kill_bug.json`, and its policy numbers
+are not read: a 90 s run has 60 post-warm-up steps and is a check of the loop, not a measurement.
+
 ---
 
 ## 3. Stages, in order, each with a verification you will see
