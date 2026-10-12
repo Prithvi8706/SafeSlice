@@ -204,7 +204,8 @@ class OvsCliBackend(NetworkBackend):
         # Timestamp the middle of the tc call, so its own duration is not charged to one side.
         t_before = self.clock()
         classes = read_tc_classes(self.iface)
-        t_read = (t_before + self.clock()) / 2.0
+        t_after = self.clock()
+        t_read = (t_before + t_after) / 2.0
         if not classes:
             raise RuntimeError(f"tc class counters unreadable on {self.iface}; stopping the run")
         counters = self._counters_from(classes)
@@ -247,6 +248,9 @@ class OvsCliBackend(NetworkBackend):
             "tc_embb_ceil_bps": ceil_bps,
             "ceil_ok": bool(ceil_ok),
             "link_util_raw": link_util_raw,
+            # How long the tc read itself took. The smoke test showed occasional ~1.4 s / 0.6 s
+            # interval pairs with the caller on time, which points at a stalled read; this measures it.
+            "tc_call_s": float(t_after - t_before),
         })
 
         self._prev_counters = counters

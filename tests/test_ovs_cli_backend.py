@@ -214,6 +214,7 @@ def test_telemetry_is_differenced_over_elapsed_time_and_latency_is_from_the_inte
     assert tel.offered_bps_per_queue == pytest.approx((3e6, 2e6, 4e6))
     log = backend.step_log[0]
     assert log["ceil_ok"] and log["counter_ok"] and log["n_rtt"] == 20
+    assert log["tc_call_s"] == 0.0  # the fake tc read takes no time
 
 
 def test_a_late_caller_is_not_made_later_and_the_lateness_is_logged(rig):
