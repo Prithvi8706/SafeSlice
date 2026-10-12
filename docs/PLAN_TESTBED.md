@@ -1,0 +1,769 @@
+# PLAN: Mininet testbed track
+
+Branch: `feature/mininet-testbed`. `main` is protected; this lands by PR.
+
+Status, 2026-09-13, updated 2026-10-12:
+
+- **Stage 1: PASS, on the corrected check.** The first run's cap check read iperf3's sender rate as
+  receiver goodput and was void (kept at
+  `results/summary/topo_check_superseded_sender_rate_bug.json`). The re-run reads the receiver
+  explicitly and passes: `results/summary/topo_check.json`.
+- **Stage 2: complete, CLEAN.** Idle RTT h1 to h4 through q0: p50 0.093 ms, p95 0.133 ms,
+  p99 0.166 ms, max 7.850 ms, 1182 samples, 0 percent loss, 1226 ICMP packets counted in q0.
+  `results/summary/noise_floor.json`. Unaffected by the stage 1 bug, since it used ping only.
+- **Stage 1b, added: `BACKPRESSURE`.** Section 2.6 rule, result in section 2.7. The sender is held
+  at the cap with zero drops even at 4x offered load. The simulator does not model this.
+- **Stage 1c, added: all three predictions met.** Section 2.8. The finite 62,500 B per-queue buffer
+  is now the default in `slice_topo.apply_qos` for every later stage.
+- **Stage 2 remains valid under that change.** It measured idle RTT with empty queues, where
+  queue depth does not matter. It does not describe the host under load; see section 2.9.
+- **Stages 3 and 4, quick run: calibration passed; slicing works; two problems found.** Section 2.9.
+  One metric bug fixed, and a latency tail under load that queueing cannot explain.
+- **Stage 4a, added: `PATH_JITTER`, on weak p99 evidence but a robust decision.** Section 2.10.
+  The tail is caused by host load, not URLLC queueing and not the probe. p50 becomes the primary
+  latency metric; p95 and p99 are reported against the loaded floor. Full sweep unblocked.
+- **Stage 4: complete.** Section 2.11. Slicing works on real OVS with tight intervals, URLLC
+  throughput is fully protected, and URLLC median latency rises about 77-fold with the eMBB level. **The
+  control problem exists by measurement.**
+- **Stage 5: `TRACKS_demand_proportional`.** Section 2.12. The only mode of three that reproduces
+  URLLC latency rising with the eMBB level. The label becomes `PARTIAL` at thresholds of 0.15 or
+  stricter, and the model has systematic goodput biases larger than the testbed's intervals.
+- **Stage 6: complete, `LOOP_OK` on all four runs, `RANKING_DIFFERS`.** Section 2.14. The unmodified
+  policy code ran the real switch at 1 s for 4 x 300 s. The simulator's predicted winner,
+  `linucb_pretrained`, tied for last: at level 0.50 the switch's per-second URLLC median scatters across
+  the 4.0 ms hard limit, which the jitter-free simulator cannot show.
+- **Stage 7: complete, 2026-10-12.** `docs/REPORT.md` section 7 is the write-up; `docs/DESIGN.md`,
+  `docs/EXPERIMENTS.md`, `docs/SETUP.md`, `docs/REPORT_OUTLINE.md`, `docs/TESTBED_SETUP.md`,
+  `docs/DECK_REVISIONS.md`, `docs/OVERVIEW.md` and `README.md` carry dated updates where they had
+  stated things now false.
+
+---
+
+## 0. What this track is for
+
+Two goals, and one piece of work serves both.
+
+1. **What the faculty asked for.** Demonstrate on real Mininet and Open vSwitch that the slicing
+   works: three slices over a shared bottleneck, rate caps that actually bind, a protected slice
+   whose latency stays low.
+2. **What the project actually needs.** `docs/PLAN.md` set a gate in week one: compare the
+   simulator against real OVS under an identical load, and stop if the gap invalidates the
+   simulator's conclusions. That gate was never evaluated. Every number in `docs/EXPERIMENTS.md`
+   is conditional on `sim.excess_sharing: demand_proportional` being how real OVS behaves, and
+   nothing rules out that it is not.
+
+Stage 4 below is the same experiment for both purposes. It is a Mininet demonstration that
+slicing works, and it is the measurement that tests the load-bearing assumption.
+
+**Scope decision, stated explicitly.** This is not the full testbed replication of the 320-run
+simulator suite. Running the policy comparison on real hardware in real time would cost roughly
+27 hours of VM time for one seed per cell, and it is not what closes the gap. The gap is closed
+by a five-point fixed-level sweep. The live policy loop (stage 6) is the demonstration, not the
+statistics.
+
+---
+
+## 1. What does not exist yet
+
+| Missing | Purpose |
+|---|---|
+| `net/topology/slice_topo.py` | Mininet topology, OVS QoS, three HTB queues, classification flows |
+| `experiments/measure_noise_floor.py` | Idle RTT distribution, from which the testbed SLO is derived |
+| `traffic/generator.py` | iperf3 and ping orchestration |
+| `experiments/sweep_levels_ovs.py` | The gate experiment: fixed-level sweep on real OVS |
+| `net/ovs_cli_backend.py` | `NetworkBackend` implementation so existing policies run live |
+| `net/ryu_backend.py`, `controller/ryu_app.py` | Out of scope for this track. See section 7. |
+
+---
+
+## 2. Design decisions that need your eyes
+
+These are the ones where I am choosing between viable options, not filling in detail.
+
+### 2.1 Classification into queues: static flows, no controller
+
+`ovs-ofctl add-flow` rules on s1 matching on transport port, with `set_queue` then `normal`.
+URLLC on 5201, eMBB on 5202, BE on 5203. ICMP goes to q0 alongside URLLC, because ping is how
+URLLC's RTT is measured and it must experience the same queue.
+
+Tradeoff: this means the "SDN" in the title is OVS-native QoS rather than an OpenFlow controller
+making the decisions. The controller version is `RyuBackend`, which is out of scope here. The
+honest framing for the report is that the data plane is real and programmable, and the control
+decisions are taken by an external agent over the OVS management interface rather than over
+OpenFlow. I would rather say that plainly than imply a controller exists.
+
+### 2.2 Where the measurement of backlog comes from, and a divergence I cannot avoid
+
+`TelemetrySample` carries `backlog_bytes_per_queue`, and `agent/context.py` exposes
+`q0_backlog_norm` as a context feature. **Open vSwitch does not report queue backlog.**
+`ovs-ofctl queue-stats` gives transmitted bytes, packets and errors, not instantaneous depth.
+
+Options:
+
+- **(a) Read it from `tc`.** `ovs-vsctl` configures an HTB qdisc that `tc -s class show dev <if>`
+  can read, and that does report backlog per class. Requires mapping OVS queue numbers to tc
+  class handles, which is version-dependent and is the fragile part.
+- **(b) Report backlog as zero on the testbed** and accept that `q0_backlog_norm` is dead on this
+  backend.
+
+I propose (a) with an automatic fallback to (b), and the backend records which one it used in
+`env.json` so no result can be read without knowing. If it falls back, **the context vector is not
+the same object on the two backends**, and any sim-trained policy evaluated on OVS is running with
+one feature pinned to zero. That must be stated wherever such a number appears.
+
+### 2.3 RTT sampling rate
+
+A 1 s control interval with `ping -i 0.2` gives 5 samples per interval, and the p95 of 5 samples
+is just the maximum. That is not a percentile, it is a max with a misleading name.
+
+Proposal: `ping -i 0.05`, 20 samples per interval. Needs root or a widened
+`net.ipv4.ping_group_range`; you have root. Even 20 samples makes p95 coarse, so
+`analysis/metrics.py` gets a recorded `rtt_samples_per_step` field and the report states the
+sampling rate next to every testbed percentile. The simulator computes p95 over 100 sub-steps, so
+**testbed and simulator percentiles are not computed from comparable sample counts** and the
+comparison in stage 5 will be stated on p50 primarily, with p95 as supporting evidence.
+
+### 2.4 The gate experiment uses constant load, not the seeded jittered traces
+
+The simulator's traces apply per-second lognormal jitter. iperf3 cannot change its target rate
+mid-flight, so exact per-second replay would mean restarting iperf3 every second, where connection
+setup would dominate the measurement.
+
+Proposal: **the gate experiment runs at constant offered rates with jitter disabled on both
+sides.** This is not a compromise, it is a better experiment. It removes a confound, makes the
+independent variable exactly known, and is the cleanest way to ask "at this offered load and this
+cap, what does each system do". A `--no-jitter` path is added to `traffic/traces.py`, and the
+simulator side of the comparison runs through the same code path as everything else.
+
+Jittered seeded replay stays possible later for the live policy demo in stage 6, where iperf3 is
+restarted at phase boundaries only and the actual achieved rate is recorded from iperf3's own
+output rather than assumed.
+
+### 2.5 Real time, and what that costs
+
+The simulator runs in virtual time. Mininet does not. Budget:
+
+| Stage | Runs | Wall clock |
+|---|---|---|
+| 2, noise floor | 1 x 60 s | ~2 min |
+| 4, gate sweep: 5 levels x 3 repeats x 120 s | 15 | ~35 min plus setup |
+| 6, live policy demo: 4 policies x 1 scenario x 300 s | 4 | ~25 min |
+
+Under an hour and a half of VM time total. That is the reason for the narrow scope.
+
+### 2.6 Does a full shaper queue push back on the sender? (added 2026-09-13, before measuring)
+
+The simulator assumes traffic is **open-loop**: a source offers its rate whether or not the queue
+is full, and the excess is tail-dropped. Every contention result in `docs/EXPERIMENTS.md` rests
+on that, and so does the `w_drop` reward term, which `docs/DESIGN.md` section 5 already notes is
+dominated by eMBB tail drops.
+
+The first stage 1 run produced a reason to doubt it on this testbed. Asked to send 7 Mbps into a
+3.5 Mbps cap, the iperf3 sender reported sending 3.53 Mbps. In a separate test across a
+tbf-shaped veth with a small queue, the sender did send its full rate and the excess was dropped.
+So the sender slowing itself down is not normal iperf3 behaviour. It is specific to something
+about this topology, and the plausible candidate is the depth of the HTB leaf queue relative to
+the sending socket's buffer. That is a hypothesis, not a finding.
+
+`python3 net/topology/slice_topo.py --diagnose-backpressure` offers eMBB at 0.5x, 1x, 2x and 4x
+the cap and reads each flow three ways: iperf3 sender, iperf3 receiver, and tc class counters.
+Classification rule, fixed now, implemented in `slice_topo.py:classify_backpressure`:
+
+| Label | Condition | What it means for the project |
+|---|---|---|
+| `GENERATOR_LIMITED` | sender below 90 percent of requested at 0.5x cap, the control row | The traffic generator is broken. Fix it; conclude nothing else. |
+| `OPEN_LOOP` | sender at 90 percent of requested or more at 2x and 4x | The simulator's arrival model holds. Proceed to stage 3 as planned. |
+| `BACKPRESSURE` | sender within 25 percent of the cap at 2x and 4x, whatever was requested | **The simulator's arrival model is wrong for this testbed.** Offered load cannot exceed the cap, tail drops become rare, the `w_drop` term reads near zero, and queues sit at a depth set by socket buffers rather than `sim.queue_limit_bytes`. This must be reported as a sim-vs-testbed divergence and resolved before stage 4, either by making the generator genuinely open-loop or by stating that the testbed is closed-loop and comparing on that basis. |
+| `MIXED` | neither | Report the table. Draw no conclusion. |
+
+### 2.7 Stage 1b result, and the mechanism test (recorded 2026-09-13, before stage 1c ran)
+
+**Stage 1b classified the testbed `BACKPRESSURE`.** `results/summary/backpressure_diagnosis.json`.
+eMBB cap 3.5 Mbps, UDP payload 1400 bytes:
+
+| Offered | Sender | Receiver | Lost | tc drops | Backlog max |
+|---|---|---|---|---|---|
+| 0.5x (control) | 1.750 | 1.750 | 0 | 0 | 0 B |
+| 1x | 3.500 | 3.383 | 0 | 0 | 112,476 B |
+| 2x | 3.480 | 3.399 | 0 | 0 | 132,664 B |
+| 4x | 3.530 | 3.399 | 0 | 0 | 134,106 B |
+
+Two things this establishes, and one it suggests.
+
+- **The shaper binds exactly.** HTB counts L2 bytes. A 1400-byte payload rides in a 1442-byte
+  frame (plus 8 UDP, 20 IPv4, 14 Ethernet), so a 3.5 Mbps ceil predicts 3.398 Mbps of payload
+  goodput. Measured at 2x and at 4x: 3.399 Mbps. The re-run stage 1 cap check also passes
+  (`results/summary/topo_check.json`).
+- **No packet is ever dropped, even at 4x the cap.** The sender stops instead.
+- **Suggested, not proven:** the largest backlog, 134,106 B, is 93.0 frames. The default socket
+  send buffer is 212,992 B, which is 2,290 B of socket accounting per frame, a plausible kernel
+  per-packet overhead. The default leaf queue holds 1000 packets. If packets queued in the switch
+  stay charged to the sending socket, which can happen when sender and switch share one kernel,
+  the socket buffer is exhausted at about 93 frames and the queue never fills far enough to drop.
+
+**Why the fix is not tuning the testbed to agree with the simulator.** A switch queue in a real
+network cannot block an application on another machine. The coupling above exists only because
+Mininet puts sender and switch in one kernel, so it is an emulation artefact. A real switch has a
+finite per-queue buffer and tail-drops when it is full. The simulator already declares that buffer,
+`sim.queue_limit_bytes: 62500`, set in week 1a and never tuned against anything. Using it is
+choosing an independently fixed value, not fitting one.
+
+**Stage 1c: the test, designed to confirm the mechanism rather than to find a setting that works.**
+Three leaf-queue conditions in one run, each swept 0.5x to 4x, classified by the section 2.6 rule:
+
+| Condition | Leaf queue | Predicted | Why |
+|---|---|---|---|
+| A | OVS default, 1000 packets | `BACKPRESSURE` | Reproduces stage 1b. |
+| B | bfifo 62,500 B | `OPEN_LOOP` | Queue fills before the ~134 KB socket bound, so it drops first. Also expected: tc drops above zero, sender near requested, backlog max at or under 62,500 B. |
+| C | bfifo 500,000 B | `BACKPRESSURE` | **The control.** Deeper than the socket bound, so the sender should block again. |
+
+Interpretation, fixed now:
+
+- A, B and C all as predicted: mechanism confirmed. All later stages use condition B's leaf queue,
+  and the report states the artefact and the correction.
+- B as predicted but C not: a small buffer fixes it, but the socket-buffer explanation is wrong.
+  Adopt B anyway, since a finite switch buffer is correct on realism grounds alone, and report the
+  mechanism as unexplained.
+- B not `OPEN_LOOP`: the queue depth is not the cause. Stop before stage 3.
+
+The same run also checks that `set_queue_max_rate` reaches the kernel shaper and how long it takes,
+and that the bfifo leaves survive a rate change. Stage 6 depends on both.
+
+### 2.8 Stage 1c result (2026-09-13)
+
+`results/summary/backpressure_mechanism.json`. **All three predictions met.**
+
+| Condition | Class | 4x: sender | 4x: iperf3 lost / tc drops | Backlog max, all rates |
+|---|---|---|---|---|
+| A, OVS default | `BACKPRESSURE` | 3.464 Mbps | 0 / 0 | 134,106 B = 93 frames |
+| B, bfifo 62,500 B | `OPEN_LOOP` | 13.997 Mbps | 7,536 / 7,537 | 62,006 B = 43 frames |
+| C, bfifo 500,000 B | `BACKPRESSURE` | 3.530 Mbps | 0 / 0 | 134,106 B = 93 frames |
+
+What it establishes:
+
+1. **All loss in condition B happens at the bottleneck queue.** Receiver-side iperf3 loss and the
+   switch's tc drop counter are independent measurements, and they agree to within one packet at
+   every rate: 30/30, 2,529/2,530, 7,536/7,537.
+2. **The buffer behaves exactly as specified.** 62,500 B holds floor(62,500 / 1,442) = 43 frames =
+   62,006 B, and the measured maximum was 62,006 B at every rate above the cap.
+3. **The ~134 KB ceiling is independent of the queue limit.** Conditions A (1000 packets) and C
+   (500,000 B) and the stage 1b run all stopped at exactly 134,106 B. So whether this testbed is
+   open-loop is decided by queue depth against a fixed ~93-frame bound, not by the queue limit.
+4. **The actuator is fit for a 1 s control loop.** Every `set_queue_max_rate` change reached the tc
+   ceil in 21 to 62 ms, at least 16 times inside the control interval, and every bfifo leaf
+   survived the change.
+
+What it does not establish: that the 93-frame bound is specifically the socket send buffer. That
+remains the best explanation (212,992 B / 93 = 2,290 B of accounting per frame) but the socket
+buffer was never varied. The project's decision does not depend on it.
+
+One measurement column is still unreliable: `tc_l2`. Three readings came in about 10 percent low
+(3.161, 3.176, 3.154 Mbps) even after the stage 1b correction, most likely because the sampling
+window can run past the end of the flow while iperf3 exchanges its final report. No conclusion
+above uses it. Stage 4 bounds the counter window to the known flow interval instead.
+
+**Decision, per the rule in section 2.7:** condition B's finite buffer is the testbed default from
+here on, and the report states the emulation artefact and its correction. This changes one thing
+the simulator comparison has to account for: the testbed and the simulator now share the same
+per-queue tail-drop buffer by construction, so any divergence found in stage 5 cannot be blamed
+on buffer size.
+
+### 2.9 First quick sweep, and the latency tail (recorded 2026-09-13, before stage 4a ran)
+
+`results/summary/ovs_level_sweep_quick.json`. **One repeat of 30 s per level, so no intervals and no
+conclusions beyond direction.** Calibration passed: every flow delivered within 1 percent of
+offered with zero drops, and every sender reached its target.
+
+| eMBB level | eMBB L2 Mbps | BE L2 Mbps | URLLC L2 Mbps | URLLC drops | URLLC p50 ms | URLLC pooled p99 ms | URLLC max ms |
+|---|---|---|---|---|---|---|---|
+| 0.20 | 1.997 | 3.998 | 3.014 | 0 | 0.11 | 4.66 | 35.70 |
+| 0.35 | 3.250 | 3.633 | 3.015 | 0 | 2.89 | 17.42 | 32.20 |
+| 0.50 | 3.982 | 2.763 | 2.947 | 0 | 3.28 | 13.92 | 22.50 |
+| 0.65 | 4.364 | 2.572 | 3.016 | 0 | 4.71 | 15.87 | 28.20 |
+| 0.80 | 5.085 | 1.858 | 3.015 | 0 | 7.52 | 20.66 | 27.30 |
+
+What holds even at one repeat:
+
+- **The slicing works on real OVS.** eMBB goodput rises with every level, Best Effort falls with
+  every level, URLLC median latency rises with every level, and at 0.20 eMBB delivers 1.997 Mbps
+  against its 2.0 Mbps cap. This is the demonstration the faculty asked for.
+- **URLLC throughput is fully protected.** 3.0 Mbps delivered and zero drops at every level. What
+  the eMBB level takes from URLLC is latency, not throughput.
+
+Two problems it exposed:
+
+1. **A metric bug, now fixed.** `urllc_ping_delivered_pct` read 90.6 to 98.5 percent while ping's
+   own summary showed 0.0 percent loss at every level. It divided the reply count by window /
+   requested interval, and ping paces slower than requested on this host. It now uses sequence
+   number gaps (`traffic/generator.py:ping_delivery`) and records the effective interval.
+2. **A latency tail that queueing cannot explain.** At level 0.20 URLLC is uncongested: median
+   backlog zero, median RTT 0.11 ms, the same as idle. Yet pooled p99 was 4.66 ms and max 35.7 ms,
+   against 0.17 ms and 7.85 ms idle in stage 2. Same path, empty queue; the difference is 17 Mbps of
+   other traffic on the same host. It also makes the per-window p95 non-monotone across levels.
+   This matters directly: the reward and the guardrail's fast path use p95 against a 7 ms hard
+   limit, and an uncongested p99 of 4.66 ms would put the guardrail partly at the mercy of the host.
+   Note also that stage 2's `CLEAN` verdict was measured idle; the bands of
+   `docs/TESTBED_SETUP.md` section 4 applied to this loaded but uncongested p99 would fall in `STOP`.
+   The rule was written for the idle case and is not being retroactively applied, but the gap has
+   to be resolved rather than ignored.
+
+**Stage 4a, the test.** `experiments/diagnose_rtt_tail.py`. At eMBB level 0.20 so URLLC stays
+uncongested, under the full burst load, measure URLLC RTT with ping at normal priority and at
+real-time priority (`chrt -f 99`, confirmed available on this host), alternated idle, normal, RT,
+normal, RT, 30 s each. Real-time priority removes delay in the ping process itself and leaves delay
+in the kernel packet path. Rule, on mean pooled p99 across the two runs of each priority,
+implemented in `diagnose_rtt_tail.py:classify_rtt_tail`:
+
+| Label | Condition | Consequence |
+|---|---|---|
+| `NO_TAIL` | normal-priority p99 under 1 ms | The quick sweep's tail did not reproduce. Proceed to the full sweep. |
+| `TOOL_SCHEDULING` | RT p99 under 1 ms | The tail was the probe. All URLLC latency measurement moves to RT-priority ping. The quick sweep's tail numbers are artefacts. |
+| `PATH_JITTER` | RT p99 at least half of normal p99 | The tail is real packet-path delay on this emulator. p95 and p99 cannot be compared to the simulator at the 7 ms scale; the comparison in stage 5 is made on p50, the testbed SLO is re-derived from the loaded uncongested floor, and both are stated as limitations. |
+| `PARTIAL` | anything else | More than half the tail was the probe and a real residual remains. Adopt RT ping, report the residual as the loaded floor. |
+
+The run also records URLLC backlog and drops in every loaded condition. If URLLC was not actually
+uncongested, part of the tail could be queueing, and the output says so.
+
+### 2.10 Stage 4a result (2026-09-13)
+
+`results/summary/rtt_tail_diagnosis.json`. eMBB level 0.20, burst load, 30 s per condition, pooled
+URLLC RTT in ms:
+
+| Condition | n | p50 | p95 | p99 | max | URLLC backlog median | URLLC drops | delivered |
+|---|---|---|---|---|---|---|---|---|
+| idle, normal priority | 429 | 0.10 | 0.15 | 0.20 | 0.34 | 0 | 0 | 100 % |
+| loaded, normal | 435 | 0.09 | 1.60 | 5.26 | 9.97 | 0 | 0 | 100 % |
+| loaded, real-time | 436 | 0.11 | 1.86 | 6.00 | 16.10 | 0 | 0 | 100 % |
+| loaded, normal | 435 | 0.10 | 1.19 | 5.57 | 16.50 | 0 | 0 | 100 % |
+| loaded, real-time | 437 | 0.11 | 1.19 | 1.72 | 20.60 | 0 | 0 | 100 % |
+
+**Classification by the section 2.9 rule: `PATH_JITTER`** (mean real-time p99 3.86 ms is at least
+half of mean normal p99 5.42 ms). The rule was applied as written.
+
+What the data supports strongly:
+
+1. **The idle floor reproduces stage 2** (p99 0.20 ms, max 0.34 ms).
+2. **Load alone creates the tail.** URLLC had zero backlog, zero drops and full delivery in every
+   loaded run, so none of it is URLLC queueing. The median is unaffected (0.09 to 0.11 ms).
+3. **The probe's own scheduling is not the cause.** The real-time runs produced the two largest
+   single replies of the whole test, 16.1 and 20.6 ms.
+
+What it does not support:
+
+- **The p99 comparison behind the label is weak.** The normal-priority runs agreed (5.26, 5.57 ms).
+  The two real-time runs did not (6.00, 1.72 ms). With two runs per condition and that spread, the
+  mean is carrying a disagreement, not a measurement. The label is not being leaned on.
+- **Where below the probe the delay arises is not identified.** The kernel packet path under load and
+  Hyper-V descheduling the WSL virtual CPU both fit. This test cannot separate them. Either way,
+  every packet crossing this testbed can experience it, which is what matters for measurement.
+
+**Why the decision is robust to that weakness.** `PATH_JITTER` and `PARTIAL` differ only in whether
+to adopt real-time ping, and real-time ping showed no consistent benefit. Both lead to the rest of
+the same plan, which is now in force:
+
+- **URLLC median RTT is the primary latency metric** for the testbed and for the stage 5 comparison.
+- **URLLC p95 and p99 are still reported**, but always beside the loaded uncongested floor, which in
+  the level sweep is the level 0.20 row. Never against zero, and never against the simulator at the
+  7 ms scale.
+- **The probe stays at normal priority.**
+- **Carried to stage 6, not resolved here:** the per-second p95 with URLLC uncongested was already
+  4.94 to 6.29 ms under load, against the guardrail's 7 ms hard limit and 4 ms warning threshold. A
+  p95-driven guardrail on this testbed would react to host jitter. The testbed SLO and the guardrail's
+  input statistic have to be re-derived before any live policy runs, and that is stated as a
+  limitation of the testbed rather than tuned around.
+
+### 2.11 Stage 4 result, and the stage 5 comparison rule (recorded 2026-09-13, before stage 5 ran)
+
+**Stage 4.** `results/summary/ovs_level_sweep.json`. Real OVS, constant burst-phase load (URLLC 3,
+eMBB 10, BE 4 Mbps L2), finite 62,500 B buffers, 3 repeats x 120 s per level, shuffled order.
+Calibration passed; 15 of 15 runs valid. Mean ± 95 % t interval, n = 3:
+
+| eMBB level | eMBB L2 Mbps | BE L2 Mbps | URLLC p50 ms | URLLC p95 ms | URLLC pooled p99 ms | URLLC drops | URLLC delivered |
+|---|---|---|---|---|---|---|---|
+| 0.20 | 1.995 ± 0.009 | 3.997 ± 0.015 | 0.10 ± 0.03 | 8.30 ± 10.00 | 7.71 ± 11.56 | 0 | 100 % |
+| 0.35 | 3.270 ± 0.030 | 3.638 ± 0.010 | 2.63 ± 0.21 | 10.18 ± 2.85 | 10.65 ± 1.28 | 0 | 100 % |
+| 0.50 | 4.082 ± 0.083 | 2.812 ± 0.020 | 3.65 ± 0.27 | 15.15 ± 9.31 | 15.92 ± 8.54 | 0 | 100 % |
+| 0.65 | 4.424 ± 0.015 | 2.465 ± 0.022 | 4.44 ± 0.44 | 16.97 ± 0.69 | 17.70 ± 2.30 | 0 | 100 % |
+| 0.80 | 5.087 ± 0.018 | 1.796 ± 0.013 | 7.67 ± 0.24 | 23.86 ± 5.99 | 25.17 ± 4.43 | 0 | 100 % |
+
+What this establishes:
+
+1. **The slicing works on real OVS, with tight intervals.** eMBB goodput rises and Best Effort
+   falls at every step; goodput intervals are at most ± 0.083 Mbps.
+2. **URLLC throughput is fully protected at every level:** zero drops and 100 % probe delivery in
+   all 15 runs.
+3. **Raising eMBB measurably costs URLLC latency.** Median RTT rises from 0.10 to 7.67 ms, and the
+   intervals of adjacent levels do not overlap.
+4. **The measurement accounts for every packet.** For eMBB and BE in every run, delivered plus
+   switch drops equals 99.6 to 100.0 % of offered. The small shortfall is in the direction expected
+   from the counter window being slightly shorter than nominal.
+5. **The p95 and p99 behave as section 2.10 predicted.** At the uncongested 0.20 level p95 is
+   8.30 ± 10.00 ms (runs: 12.33, 4.29, 8.28), so p95 cannot separate 0.20 from 0.35 or 0.50. The
+   median separates every level.
+
+**Result 3 settles the question the simulator comparison was originally built to answer.** The
+concern in `docs/DESIGN.md` section 2 was that real OVS might share leftover capacity like the
+`equal` mode, protecting URLLC for free and making the control problem vacuous. On the real switch
+at this operating point URLLC is not protected for free: its latency rises about 77-fold with the eMBB
+level. **The control problem exists, by measurement.** That no longer depends on stage 5.
+
+**What stage 5 still decides** is whether the simulator reproduces the testbed *quantitatively*, and
+under which sharing mode, which determines how far the 320-run simulator study can be trusted.
+
+**Stage 5 procedure.** `experiments/compare_sim_vs_ovs.py`. The simulator is run at each of the five
+levels under each of the three `sim.excess_sharing` modes, with conditions matched to stage 4:
+a single constant phase at URLLC 3.0, eMBB 10.0, BE 4.0 Mbps; all jitter set to zero; 120 steps with
+steps 10 to 118 kept, matching the testbed window of seconds 10 to 119; `link.base_rtt_ms` set to the
+measured idle median from stage 2 (0.093 ms) instead of the modelling constant 2.0. With zero jitter
+each cell is deterministic, so one run per cell.
+
+Metrics compared, per level, using the same definitions on both sides: eMBB goodput, BE goodput, and
+URLLC median RTT (median of the per-second medians). URLLC p95 is recorded but excluded from the
+rule, per section 2.10.
+
+**Rule.** For each mode and metric, MAE is the mean over the five levels of |simulator − testbed
+mean|, and normalised MAE (NMAE) is MAE divided by the testbed's range for that metric across the
+five levels, which is the size of the effect the model is meant to capture. A mode *tracks* a metric
+if its NMAE is at most **0.25**. The best mode is the one with the lowest mean NMAE across the three
+metrics.
+
+| Label | Condition | Consequence |
+|---|---|---|
+| `TRACKS_<mode>` | best mode tracks all three metrics | If `demand_proportional`: the simulator's default holds quantitatively at this operating point and the section 2 caveat in `docs/DESIGN.md` narrows to "one operating point, constant load". If another mode: the control problem still exists, but the 320-run study was produced under a mode that does not match the testbed, and must be relabelled as such. Re-running it under the matching mode is the obvious follow-up and is raised with the user, not done automatically. |
+| `PARTIAL_<mode>` | best mode tracks some metrics, not all | The simulator is right in shape but off on the failing metric. Report which, and do not rely on the simulator for that metric. |
+| `NEITHER` | best mode tracks none | The model is wrong in a way not anticipated. Stop and report. The simulator is not tuned to match; that would make the agreement circular. |
+
+**Disclosure about when this rule was set.** It was written after the stage 4 testbed numbers and the
+old jittered `demand_proportional` simulator table in `docs/DESIGN.md` section 3 were both visible,
+but before any constant-load simulator run and before the `equal` and `min_rate_proportional` modes
+had been run at all. The 0.25 threshold is a round-number judgment: a model whose average error
+exceeds a quarter of the effect it is modelling cannot be relied on to rank levels. It is not
+adjusted after seeing the result.
+
+**Scope, which the report must keep.** One operating point, constant load, five fixed levels. Agreement
+here does not show agreement under the jittered scenarios the policies were evaluated on.
+
+### 2.12 Stage 5 result (2026-09-13)
+
+`results/summary/sim_vs_ovs.json`, produced by `experiments/compare_sim_vs_ovs.py` under the section
+2.11 rule. **Classification: `TRACKS_demand_proportional`.**
+
+NMAE per metric (at most 0.25 tracks):
+
+| Mode | eMBB goodput | BE goodput | URLLC median RTT | Mean |
+|---|---|---|---|---|
+| `demand_proportional` | 0.085 | 0.158 | 0.087 | **0.110** |
+| `equal` | 0.167 | 0.256 | 0.476 | 0.300 |
+| `min_rate_proportional` | 0.096 | 0.117 | 0.476 | 0.230 |
+
+URLLC median RTT, ms, testbed against each mode:
+
+| Level | Testbed | `demand_proportional` | `equal` | `min_rate_proportional` |
+|---|---|---|---|---|
+| 0.20 | 0.10 ± 0.03 | 0.09 | 0.09 | 0.09 |
+| 0.35 | 2.63 ± 0.21 | 1.31 | 0.09 | 0.09 |
+| 0.50 | 3.65 ± 0.27 | 3.12 | 0.09 | 0.09 |
+| 0.65 | 4.44 ± 0.44 | 4.94 | 0.09 | 0.09 |
+| 0.80 | 7.67 ± 0.24 | 6.76 | 0.09 | 0.09 |
+
+**What is robust.** Only `demand_proportional` reproduces URLLC latency rising with the eMBB level.
+Both other modes predict it stays at the base RTT at every level, which the real switch contradicts by
+a factor of about 85 at level 0.80 (7.67 ms against 0.09 ms). That conclusion does not depend on the threshold: their URLLC NMAE
+of 0.476 fails any threshold that could reasonably be called agreement. **The simulation study was run
+under the one mode of the three that the real switch supports.**
+
+**What is threshold-sensitive.** The label is `TRACKS` at thresholds of 0.20 and above, and `PARTIAL`
+at 0.15 and below, where Best Effort goodput (NMAE 0.158) stops counting as tracked. The recorded
+threshold is 0.25 and the recorded label stands, but the report must state this margin.
+
+**What is systematic, not noise.** At every congested level, every `demand_proportional` error is
+larger than the testbed's own 95 percent interval, and the goodput errors all point the same way:
+
+| Level | eMBB goodput error | BE goodput error | URLLC median error |
+|---|---|---|---|
+| 0.35 | −0.154 Mbps (−5 %) | +0.246 (+7 %) | −1.33 ms (−50 %) |
+| 0.50 | −0.332 (−8 %) | +0.438 (+16 %) | −0.53 (−14 %) |
+| 0.65 | −0.240 (−5 %) | +0.351 (+14 %) | +0.51 (+11 %) |
+| 0.80 | −0.587 (−12 %) | +0.704 (+39 %) | −0.91 (−12 %) |
+
+The real switch gives eMBB more and Best Effort less than the model predicts. `min_rate_proportional`
+wins on Best Effort goodput, which is consistent with, but does not demonstrate, real HTB borrowing
+between eMBB and Best Effort being weighted by their guaranteed rates (1.0 against 0.5 Mbps) while
+URLLC's latency behaves demand-driven. That is a hypothesis for future work, not a finding.
+
+**Excluded from the rule, as recorded:** URLLC p95. The simulator's p95 equals its median at constant
+load, since a steady queue has no spread, while the testbed's p95 is 8 to 24 ms of mostly host jitter.
+The two are not comparable and are not compared.
+
+### 2.13 Stage 6 design and reading rule (recorded 2026-10-08, before any stage 6 run)
+
+**Decision, taken by the user on 2026-10-08: a median-based testbed SLO.** Section 2.10 showed a
+p95-driven guardrail on this host would react to host jitter. Three options were put to the user:
+re-derive the SLO on the per-second median, keep p95 and raise the limits above the loaded floor,
+or skip stage 6. The first was chosen.
+
+What that changes, all in `config/testbed.yaml`, which the simulator study never reads:
+
+- The guardrail's fast path reads the per-second median instead of p95, through a new key
+  `context.fast_rtt_statistic`. Its default in `config/default.yaml` is `urllc_rtt_ms_p95`, and four
+  simulator runs across four policies and scenarios hash identically before and after the change.
+  The slow path was already an EWMA of the median.
+- The reward's SLA terms read the median (`reward.rtt_statistic`).
+- Limits re-derived from the stage 4 medians by the simulator's own placement rule:
+  **warn 3.0, target 3.5, hard 4.0 ms**; threshold policy up 3.5, down 2.0 ms. The arithmetic is in
+  the file. The user was quoted "about warn 3.0 / target 3.5 / hard 4.2" before the derivation was
+  written out; 4.0 is used because it is exactly the gap between the level 0.50 and 0.65 intervals.
+- `link.base_rtt_ms` is the measured 0.093 ms.
+
+**Protocol.** `experiments/run_policies_ovs.py`. Four policies, `static_safe`, `static_equal`,
+`threshold`, `linucb_pretrained`, one 300 s run each, burst scenario, seed 0, jitter off so iperf3 can
+follow the load (eMBB alternates 2 and 10 Mbps every 40 and 35 s; URLLC 3 and BE 4 constant), order
+shuffled from the seed. Each runs through `run_once` unchanged, with `net/ovs_cli_backend.py` as the
+backend. `linucb_pretrained` is trained in the simulator on the held-out seeds with jitter on, under
+the testbed overlay, then frozen: on the testbed this is a sim-to-real transfer. **The same script with
+`--backend sim` is run first, and its numbers are recorded below as the prediction before the testbed
+run exists.**
+
+**Loop-health rule**, per testbed run, over post-warm-up steps (`classify_loop`):
+
+| Check | Passes if |
+|---|---|
+| on time | at least 95 % of intervals within 10 % of 1 s |
+| RTT measured | at least 99 % of steps have 5 or more ping replies |
+| actuation confirmed | at least 99 % of steps show the programmed eMBB ceiling in tc, within 1 % |
+| counters | at least 99 % of steps have readable, non-decreasing tc counters |
+| generator | every iperf3 segment's sender within 5 % of its requested rate |
+
+All pass: `LOOP_OK`, and the run counts as the demonstration. Any fail: `LOOP_DEGRADED`, the failed
+checks are named, and the run's policy numbers are reported only with that label beside them.
+
+**How the policy results are read.** One run per policy, so there are no intervals and no ranking
+claim can be statistically separated. Stated now so it is not decided after seeing the data:
+
+1. **The demonstration** is the loop label: the same policy code ran a real switch at 1 s.
+2. **Per policy**, each testbed metric is put beside the simulator's prediction: eMBB and BE goodput,
+   URLLC median, SLA violation rate, guardrail intervention rate, mean reward. Differences are
+   described, not tested. The section 2.12 biases predict the testbed will show more eMBB and less BE
+   than the simulator, and a higher URLLC median at level 0.35.
+3. **Ranking by mean reward:** `RANKING_MATCHES` if the testbed order equals the predicted order,
+   otherwise `RANKING_DIFFERS` with the pairs that swapped. With n = 1 per policy, a swap between
+   policies whose rewards differ by less than 0.01 is reported as not distinguishable rather than as a
+   reversal.
+4. **Not claimed in any case:** that any policy beats another on the testbed, or that testbed SLA
+   violation rates compare with the simulator study's. They use a different statistic and limit.
+
+**The prediction (simulator, recorded 2026-10-08 before the testbed run).**
+`results/summary/policy_live_sim.json`, per-step logs in `results/testbed_policies/sim/`. Post-warm-up,
+270 steps per policy; the URLLC median is the median over steps of the per-step median:
+
+| Policy | Mean reward | SLA violations | Guardrail interventions | eMBB Mbps | BE Mbps | URLLC median (ms) | Level held in eMBB bursts |
+|---|---|---|---|---|---|---|---|
+| `linucb_pretrained` | **0.2181** | 0.00 % | 0.00 % | 2.903 | 3.623 | 3.12 | 0.50 (136 of 140 steps) |
+| `static_equal` | 0.1959 | 0.00 % | 0.00 % | 2.584 | 3.945 | 1.31 | 0.35 |
+| `threshold` | 0.1641 | 1.48 % | 8.89 % | 2.811 | 3.664 | 0.09 | 0.50 (116 of 140), oscillating |
+| `static_safe` | 0.1127 | 0.00 % | 0.00 % | 2.000 | 4.000 | 0.09 | 0.20 |
+
+Predicted order: `linucb_pretrained` > `static_equal` > `threshold` > `static_safe`.
+
+What to watch for, from what is already measured. `linucb_pretrained` and `threshold` both spend eMBB
+bursts at level 0.50, where the simulator predicts a 3.12 ms median, under the 3.5 ms target. Stage 4
+measured 3.65 ± 0.27 ms on the switch at that level, over the target and within 0.35 ms of the 4.0 ms
+hard limit. If the per-second median scatters across 4.0 ms, the testbed will show hard overrides and
+violations the simulator does not predict, and the two learned or reactive policies will lose reward
+relative to `static_equal`. That would be the section 2.12 bias at level 0.50 showing up in control
+behaviour, not a new finding about the policies.
+
+**Smoke test, 2026-10-12: a harness bug, fixed.** `--quick` (4 x 90 s) returned `LOOP_OK` for
+`threshold` and `LOOP_DEGRADED` for the other three, all on the single check `senders_on_target`. Every
+other check was 100 % in all four runs: intervals on time, RTT measured, eMBB ceiling confirmed in tc,
+counters readable. The failing segments were the ones scheduled to end with the run, and each had
+`parse_ok: False`. Every segment that did report was on target (URLLC 2.913 Mbps payload against
+2.913 requested). Cause: `OvsCliBackend.close()` terminated the iperf3 clients the moment the run
+ended, before iperf3 had written its JSON report, so whether a report survived was a race. Fix:
+`close()` now lets clients finish on their own for up to 10 s first (`CLIENT_GRACE_S`, with a test).
+The rule above is unchanged. The void result is kept at
+`results/summary/policy_live_ovs_cli_quick_superseded_client_kill_bug.json`, and its policy numbers
+are not read: a 90 s run has 60 post-warm-up steps and is a check of the loop, not a measurement.
+
+A second smoke run after the fix: all 20 iperf3 reports parsed and every sender was on target, but
+`static_safe` failed `on_time` (4 of 60 intervals off, in two pairs of about 1.4 s then 0.6 s with the
+caller on time) and `threshold` passed with one such pair. The rule was left as recorded. A field
+`tc_call_s` was added to the step log to test the guess that the `tc` read was stalling.
+
+### 2.14 Stage 6 result (2026-10-12)
+
+`results/summary/policy_live_ovs_cli.json`, per-step logs and loop logs in
+`results/testbed_policies/ovs_cli/`. Commit `815c43d` on the testbed, order `threshold`, `static_safe`,
+`static_equal`, `linucb_pretrained`, 300 s each, 270 post-warm-up steps each.
+
+**Loop health: `LOOP_OK` on all four runs.** Every step had its URLLC latency measured (at least 5
+replies; none missing), its eMBB ceiling confirmed in tc, and readable counters; all 40 iperf3 segments
+reported and were on target. Intervals on time: 100 % for `linucb_pretrained` and `static_equal`,
+99.3 % for `threshold` and `static_safe`, each of which had one long/short pair (1.62/0.38 s and
+1.42/0.58 s). **The `tc` guess was wrong:** the longest `tc` read in any run took 14 ms, median 2 ms. The
+stall is the loop process waking late from its sleep, which is host descheduling, the same family of
+effect as section 2.10. Counters are differenced over the measured interval, so rates are unaffected.
+
+**The demonstration stands: the same `run_once`, policies, guardrail and reward that produced the
+simulator study ran a real switch at 1 s, and the guardrail acted on it** (17 hard overrides for
+`linucb_pretrained`, 16 for `threshold`).
+
+Per policy, testbed against the section 2.13 prediction. URLLC median is during eMBB bursts, where
+the levels differ; the all-steps median in the JSON is dominated by idle phases.
+
+| Policy | Mean reward, sim → OVS | SLA violations | Guardrail interventions | eMBB Mbps | BE Mbps | URLLC median in bursts (ms) |
+|---|---|---|---|---|---|---|
+| `static_equal` | 0.1959 → **0.1715** | 0.00 → 0.74 % | 0.00 → 2.96 % | 2.584 → 2.631 | 3.945 → 3.859 | 1.31 → 2.53 |
+| `static_safe` | 0.1127 → 0.1047 | 0.00 → 0.00 % | 0.00 → 0.00 % | 2.000 → 1.998 | 4.000 → 3.996 | 0.09 → 0.07 |
+| `threshold` | 0.1641 → 0.0211 | 1.48 → 5.93 % | 8.89 → 22.96 % | 2.811 → 2.603 | 3.664 → 3.709 | 3.12 → 2.35 |
+| `linucb_pretrained` | **0.2181** → 0.0207 | 0.00 → 6.30 % | 0.00 → 25.19 % | 2.903 → 2.583 | 3.623 → 3.729 | 3.12 → 2.56 |
+
+**Ranking: `RANKING_DIFFERS`.** Testbed order `static_equal` (0.1715) > `static_safe` (0.1047) >
+`threshold` (0.0211) ≈ `linucb_pretrained` (0.0207), against the predicted `linucb_pretrained` >
+`static_equal` > `threshold` > `static_safe`. `threshold` and `linucb_pretrained` differ by 0.0004, under
+the 0.01 recorded as indistinguishable. `linucb_pretrained` fell from first to tied last, and
+`static_safe` rose above both adaptive policies.
+
+**Why, and it is the mechanism section 2.13 named in advance.** Both adaptive policies hold eMBB bursts
+at level 0.50, as predicted (simulator: 136 and 116 of 140 burst steps; testbed: they start there). In
+the simulator that level gives a constant 3.12 ms median, under the 3.5 ms target. On the switch, the
+per-second median at level 0.50 during bursts averaged 3.59 ms for `linucb_pretrained` (sd 0.76, n 72)
+and 3.38 ms for `threshold` (sd 0.66, n 57), and **exceeded the 4.0 ms hard limit in 24 % and 18 % of
+those seconds**. Every one of `linucb_pretrained`'s 17 violations was at level 0.50 in a burst. Each
+breach fires a hard override and a 3-step hold-down at level 0.20, so `linucb_pretrained` spent 64 of 140
+burst steps at 0.20, against none in the simulator, giving up eMBB throughput to the guardrail. `static_equal` sits at
+0.35, where the median is 2.53 ms, well clear of 4.0, and lost almost nothing. Two things the
+simulator does not have produced this: the section 2.12 bias at level 0.50 (3.65 measured against
+3.12 predicted in stage 4), and second-to-second scatter in the median, which a jitter-free fluid model
+has none of.
+
+**What the static policies confirm.** `static_safe` matches its prediction to within 0.01 Mbps on both
+goodputs. `static_equal` shows the section 2.12 bias in the predicted direction: more eMBB (+0.047),
+less BE (−0.086), and a higher URLLC median at level 0.35 (2.53 against 1.31 ms).
+
+**What this does not show**, per the rule: that `static_equal` is a better policy than
+`linucb_pretrained` in general. It is one run per policy, at one operating point, under an SLO whose hard
+limit sits 0.35 ms above the measured level 0.50 median. What it does show is narrower and robust to
+that: **a policy trained in the simulator inherits the simulator's blind spot.** The learned policy
+chose the level the simulator rated safe, and on the switch that level is the one whose latency
+straddles the limit. Training in a simulator with per-second latency noise, or a margin between the
+learned operating point and the hard limit, is the obvious follow-up, not done here.
+
+---
+
+## 3. Stages, in order, each with a verification you will see
+
+I cannot run any of this. You run each command on the VM and paste the output; I work from that.
+Nothing proceeds to stage N+1 until stage N has produced output you have seen.
+
+### Stage 1: topology and queues
+
+Build `net/topology/slice_topo.py`. Topology `h1,h2,h3 --- s1 === s2 --- h4,h5,h6`, bottleneck on
+`s1 <-> s2`, QoS with three HTB queues on s1's egress port toward s2, min-rates from
+`config/default.yaml` `slices.*.min_share`, max-rates from `allocation_from_level`.
+
+Verify, and these are the numbers I need back from you:
+- `pingall` reaches 100 percent.
+- `ovs-ofctl -O OpenFlow13 queue-stats s1` lists exactly three queues on the bottleneck port.
+- `tc -s class show dev <bottleneck-if>` shows three HTB classes with the configured rates.
+- A single iperf3 UDP flow on port 5202 is capped at the programmed eMBB max-rate, within a few
+  percent. **If the cap does not bind, stop. Nothing downstream is meaningful.**
+
+### Stage 2: noise floor
+
+Build `experiments/measure_noise_floor.py`. 60 s of idle RTT, p50/p95/p99, histogram, written to
+`results/summary/noise_floor.json`.
+
+This produces the first real number in the entire project and it decides the testbed SLO.
+`config/default.yaml` currently carries `base_rtt_ms: 2.0`, which is a modelling constant, not a
+measurement. Whatever this returns replaces it for the testbed config.
+
+### Stage 3: traffic generator
+
+Build `traffic/generator.py`. iperf3 servers on h4, h5, h6; UDP clients on h1, h2, h3 at
+per-slice target rates; `ping -i 0.05` from h1 to h4 for URLLC RTT. Records achieved rate from
+iperf3's own report, not the requested rate.
+
+Verify: with all caps wide open, achieved rates match requested within a few percent, and the sum
+does not exceed link capacity.
+
+### Stage 4: the gate experiment, and the faculty deliverable
+
+Build `experiments/sweep_levels_ovs.py`. Constant offered load matching the simulator's operating
+point. For each of the five eMBB levels, hold it for 120 s and record URLLC p50/p95, eMBB goodput,
+BE goodput, drops. Three repeats.
+
+Output: the real-OVS counterpart to the table in `docs/DESIGN.md` section 3.
+
+**This is the deliverable that shows slicing works.** eMBB goodput should rise with the level and
+URLLC latency should rise with it too. If URLLC latency does not move at all, that is the `equal`
+sharing outcome and it is a finding, not a failure.
+
+### Stage 5: the comparison, and the decision point
+
+Run the simulator at the identical constant loads under all three `sim.excess_sharing` modes.
+Put the four columns side by side.
+
+Three possible outcomes, and I am writing down now what each one means so the answer is not
+chosen after seeing the data:
+
+| Outcome | What it means | What we do |
+|---|---|---|
+| OVS tracks `demand_proportional` | The simulator's assumption holds. | `docs/EXPERIMENTS.md` loses its biggest caveat. The 320-run study stands. |
+| OVS tracks `equal` | URLLC is protected for free by the scheduler. **The control problem does not exist at this operating point.** | Report it as the headline finding. The simulator study becomes a study of an artifact and must be relabelled as such. This is a legitimate and publishable outcome. |
+| OVS tracks neither | The model is wrong in a way we did not anticipate. | Stop and report. Do not tune the simulator to match; that would make the agreement circular. |
+
+### Stage 6: live policy loop on real OVS
+
+Build `net/ovs_cli_backend.py` against the existing `NetworkBackend` ABC, so `static_safe`,
+`static_equal`, `threshold` and `linucb_pretrained` run live on Mininet through the same runner,
+the same guardrail and the same CSV schema. Four runs, 300 s each.
+
+This is the strongest version of the demonstration: the same policy code, unmodified, driving a
+real switch.
+
+### Stage 7: documentation
+
+Update `docs/DESIGN.md` section 2 (the assumption is now tested), `docs/SETUP.md` (remove the
+"never built" banner for what now exists), `docs/EXPERIMENTS.md` (new testbed section),
+`docs/REPORT_OUTLINE.md` section 8 (the top threat to validity is now resolved or confirmed).
+
+---
+
+## 4. What stays true regardless of outcome
+
+- No number enters any document unless code that ran produced it. Otherwise `TBD`.
+- If the testbed contradicts the simulator, the contradiction is the result and gets reported as
+  the headline. The simulator does not get tuned until it agrees.
+- Testbed and simulator SLA violation rates are not comparable until both SLOs are derived the
+  same way. Stage 2 derives the testbed one.
+- Tests that need Mininet are marked `@pytest.mark.requires_mininet` and stay skipped by default,
+  so `pytest -q` keeps passing on a laptop.
+
+## 5. What I need from you
+
+Three facts I will not guess, none of which block stage 1 planning but all of which block stage 1
+execution:
+
+1. VM distro and version.
+2. `python3 -V`, `mn --version`, `ovs-vsctl --version`, `iperf3 --version` on the VM.
+3. Whether `ping -i 0.05 -c 5 127.0.0.1` works as your user, or needs sudo.
+
+## 6. Risks
+
+- **`ovs-vsctl set queue` reconfiguration latency.** Changing `max-rate` mid-run goes through
+  ovs-vswitchd to tc. If that takes longer than a control interval, the 1 s loop is not viable on
+  the testbed and the interval has to grow. Measured in stage 6, not assumed.
+- **Per-queue drop counters may not be populated** on all OVS versions. Fall back to tc, and
+  record which source was used.
+- **Host CPU contention.** Six hosts, three iperf3 pairs and a fast ping on one VM. At 10 Mbps
+  this should be comfortable, but if the VM is under-provisioned the latency measurements become
+  a measurement of the hypervisor. Stage 2's noise floor is the check: if idle p99 is already
+  near the SLO, stop and raise the SLO or the VM spec.
+
+## 7. Explicitly out of scope
+
+`RyuBackend` and `controller/ryu_app.py`. Ryu is unmaintained, its documentation points at
+`os-ken`, and both depend on `eventlet` where Python-version breakage lives. It was optional in
+the original plan and it is not what closes the validity gap. If stages 1 to 6 land with time to
+spare, it is the obvious next thing.

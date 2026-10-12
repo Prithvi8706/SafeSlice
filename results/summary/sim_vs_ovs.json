@@ -1,0 +1,343 @@
+{
+  "classification": "TRACKS_demand_proportional",
+  "rule": "docs/PLAN_TESTBED.md section 2.11, recorded before this run",
+  "track_threshold_nmae": 0.25,
+  "matched_conditions": {
+    "loads_l2_mbps": {
+      "urllc": 3.0,
+      "embb": 10.0,
+      "be": 4.0
+    },
+    "duration_s": 120.0,
+    "warmup_s": 10.0,
+    "base_rtt_ms": 0.093,
+    "jitter": 0.0,
+    "queue_limit_bytes": 62500
+  },
+  "testbed": [
+    {
+      "level_index": 0,
+      "embb_share": 0.2,
+      "embb_goodput_l2_mbps": 1.9954560599768973,
+      "embb_goodput_l2_mbps_ci95_half": 0.008603049063526519,
+      "be_goodput_l2_mbps": 3.9965088296874662,
+      "be_goodput_l2_mbps_ci95_half": 0.01515114710879285,
+      "urllc_rtt_p50_ms": 0.1035,
+      "urllc_rtt_p50_ms_ci95_half": 0.03348982496323885,
+      "urllc_rtt_p95_ms": 8.298199999999978,
+      "urllc_rtt_p95_ms_ci95_half": 9.995034113083813,
+      "urllc_goodput_l2_mbps": 3.014303876982021,
+      "urllc_goodput_l2_mbps_ci95_half": 0.00010559911618902847
+    },
+    {
+      "level_index": 1,
+      "embb_share": 0.35,
+      "embb_goodput_l2_mbps": 3.2695336160070974,
+      "embb_goodput_l2_mbps_ci95_half": 0.02977710627296871,
+      "be_goodput_l2_mbps": 3.6381840212338887,
+      "be_goodput_l2_mbps_ci95_half": 0.009615373903317676,
+      "urllc_rtt_p50_ms": 2.6316666666666664,
+      "urllc_rtt_p50_ms_ci95_half": 0.21236592888052375,
+      "urllc_rtt_p95_ms": 10.184566666666653,
+      "urllc_rtt_p95_ms_ci95_half": 2.8512640082078407,
+      "urllc_goodput_l2_mbps": 3.015237338874558,
+      "urllc_goodput_l2_mbps_ci95_half": 0.00017579645682757307
+    },
+    {
+      "level_index": 2,
+      "embb_share": 0.5,
+      "embb_goodput_l2_mbps": 4.081884240057325,
+      "embb_goodput_l2_mbps_ci95_half": 0.08270446061111673,
+      "be_goodput_l2_mbps": 2.8122630903146315,
+      "be_goodput_l2_mbps_ci95_half": 0.01971816692038097,
+      "urllc_rtt_p50_ms": 3.6483333333333334,
+      "urllc_rtt_p50_ms_ci95_half": 0.2670688740302465,
+      "urllc_rtt_p95_ms": 15.150999999999998,
+      "urllc_rtt_p95_ms_ci95_half": 9.308976866857725,
+      "urllc_goodput_l2_mbps": 3.0156640540048127,
+      "urllc_goodput_l2_mbps_ci95_half": 0.0018373396630429603
+    },
+    {
+      "level_index": 3,
+      "embb_share": 0.65,
+      "embb_goodput_l2_mbps": 4.424122616483603,
+      "embb_goodput_l2_mbps_ci95_half": 0.015029692458933576,
+      "be_goodput_l2_mbps": 2.464873522670488,
+      "be_goodput_l2_mbps_ci95_half": 0.021587645137184402,
+      "urllc_rtt_p50_ms": 4.4366666666666665,
+      "urllc_rtt_p50_ms_ci95_half": 0.4391962031294258,
+      "urllc_rtt_p95_ms": 16.971999999999994,
+      "urllc_rtt_p95_ms_ci95_half": 0.6869707566649645,
+      "urllc_goodput_l2_mbps": 3.015419559133539,
+      "urllc_goodput_l2_mbps_ci95_half": 0.0003197288391585813
+    },
+    {
+      "level_index": 4,
+      "embb_share": 0.8,
+      "embb_goodput_l2_mbps": 5.086821413584276,
+      "embb_goodput_l2_mbps_ci95_half": 0.0184684659510087,
+      "be_goodput_l2_mbps": 1.7959011571592942,
+      "be_goodput_l2_mbps_ci95_half": 0.01323297758154018,
+      "urllc_rtt_p50_ms": 7.669999999999999,
+      "urllc_rtt_p50_ms_ci95_half": 0.23697163449568218,
+      "urllc_rtt_p95_ms": 23.86166666666666,
+      "urllc_rtt_p95_ms_ci95_half": 5.9854855272693515,
+      "urllc_goodput_l2_mbps": 3.01526853554981,
+      "urllc_goodput_l2_mbps_ci95_half": 0.0015515422783193506
+    }
+  ],
+  "simulator": {
+    "demand_proportional": [
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 2.0,
+        "be_goodput_l2_mbps": 4.0,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 0,
+        "embb_share": 0.2
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 3.115384615384614,
+        "be_goodput_l2_mbps": 3.8846153846153886,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 1.3051212121212108,
+        "urllc_rtt_p95_ms": 1.3051212121212108,
+        "level_index": 1,
+        "embb_share": 0.35
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 3.75,
+        "be_goodput_l2_mbps": 3.25,
+        "urllc_goodput_l2_mbps": 2.9999999999999996,
+        "urllc_rtt_p50_ms": 3.123303030303031,
+        "urllc_rtt_p95_ms": 3.123303030303031,
+        "level_index": 2,
+        "embb_share": 0.5
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 4.184210526315786,
+        "be_goodput_l2_mbps": 2.81578947368421,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 4.941484848484848,
+        "urllc_rtt_p95_ms": 4.941484848484848,
+        "level_index": 3,
+        "embb_share": 0.65
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 4.5,
+        "be_goodput_l2_mbps": 2.5,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 6.759666666666667,
+        "urllc_rtt_p95_ms": 6.759666666666667,
+        "level_index": 4,
+        "embb_share": 0.8
+      }
+    ],
+    "equal": [
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 2.0,
+        "be_goodput_l2_mbps": 4.0,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 0,
+        "embb_share": 0.2
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 3.5,
+        "be_goodput_l2_mbps": 3.5,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 1,
+        "embb_share": 0.35
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 3.75,
+        "be_goodput_l2_mbps": 3.25,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 2,
+        "embb_share": 0.5
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 3.75,
+        "be_goodput_l2_mbps": 3.25,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 3,
+        "embb_share": 0.65
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 3.75,
+        "be_goodput_l2_mbps": 3.25,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 4,
+        "embb_share": 0.8
+      }
+    ],
+    "min_rate_proportional": [
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 2.0,
+        "be_goodput_l2_mbps": 4.0,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 0,
+        "embb_share": 0.2
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 3.5,
+        "be_goodput_l2_mbps": 3.5,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 1,
+        "embb_share": 0.35
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 4.666666666666665,
+        "be_goodput_l2_mbps": 2.3333333333333326,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 2,
+        "embb_share": 0.5
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 4.666666666666665,
+        "be_goodput_l2_mbps": 2.3333333333333326,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 3,
+        "embb_share": 0.65
+      },
+      {
+        "n_steps": 109,
+        "embb_goodput_l2_mbps": 4.666666666666665,
+        "be_goodput_l2_mbps": 2.3333333333333326,
+        "urllc_goodput_l2_mbps": 3.0,
+        "urllc_rtt_p50_ms": 0.093,
+        "urllc_rtt_p95_ms": 0.093,
+        "level_index": 4,
+        "embb_share": 0.8
+      }
+    ]
+  },
+  "errors": {
+    "demand_proportional": {
+      "embb_goodput_l2_mbps": {
+        "mae": 0.2634621368910008,
+        "testbed_range": 3.0913653536073786,
+        "nmae": 0.08522516970812309,
+        "tracks": true,
+        "testbed_mean_ci95_half": 0.03091655487151085,
+        "max_abs_error": 0.5868214135842758
+      },
+      "be_goodput_l2_mbps": {
+        "mae": 0.348534847446766,
+        "testbed_range": 2.200607672528172,
+        "nmae": 0.15838118343300653,
+        "tracks": true,
+        "testbed_mean_ci95_half": 0.015861062130243218,
+        "max_abs_error": 0.7040988428407058
+      },
+      "urllc_rtt_p50_ms": {
+        "mae": 0.6554454545454542,
+        "testbed_range": 7.566499999999999,
+        "nmae": 0.08662465532881178,
+        "tracks": true,
+        "testbed_mean_ci95_half": 0.23781849309982342,
+        "max_abs_error": 1.3265454545454556
+      }
+    },
+    "equal": {
+      "embb_goodput_l2_mbps": {
+        "mae": 0.5155677188282418,
+        "testbed_range": 3.0913653536073786,
+        "nmae": 0.16677670215415175,
+        "tracks": true,
+        "testbed_mean_ci95_half": 0.03091655487151085,
+        "max_abs_error": 1.3368214135842758
+      },
+      "be_goodput_l2_mbps": {
+        "mae": 0.5637274842804018,
+        "testbed_range": 2.200607672528172,
+        "nmae": 0.2561690079144196,
+        "tracks": false,
+        "testbed_mean_ci95_half": 0.015861062130243218,
+        "max_abs_error": 1.4540988428407058
+      },
+      "urllc_rtt_p50_ms": {
+        "mae": 3.6050333333333326,
+        "testbed_range": 7.566499999999999,
+        "nmae": 0.47644661776691116,
+        "tracks": false,
+        "testbed_mean_ci95_half": 0.23781849309982342,
+        "max_abs_error": 7.576999999999999
+      }
+    },
+    "min_rate_proportional": {
+      "embb_goodput_l2_mbps": {
+        "mae": 0.2964983095452036,
+        "testbed_range": 3.0913653536073786,
+        "nmae": 0.09591176571841098,
+        "tracks": true,
+        "testbed_mean_ci95_half": 0.03091655487151085,
+        "max_abs_error": 0.5847824266093404
+      },
+      "be_goodput_l2_mbps": {
+        "mae": 0.25791546280778305,
+        "testbed_range": 2.200607672528172,
+        "nmae": 0.11720192837075608,
+        "tracks": true,
+        "testbed_mean_ci95_half": 0.015861062130243218,
+        "max_abs_error": 0.5374321761740384
+      },
+      "urllc_rtt_p50_ms": {
+        "mae": 3.6050333333333326,
+        "testbed_range": 7.566499999999999,
+        "nmae": 0.47644661776691116,
+        "tracks": false,
+        "testbed_mean_ci95_half": 0.23781849309982342,
+        "max_abs_error": 7.576999999999999
+      }
+    }
+  },
+  "best_mode": "demand_proportional",
+  "mean_nmae": {
+    "demand_proportional": 0.11007700282331379,
+    "equal": 0.2997974426118275,
+    "min_rate_proportional": 0.22985343728535942
+  },
+  "metrics_tracked_by_best": [
+    "embb_goodput_l2_mbps",
+    "be_goodput_l2_mbps",
+    "urllc_rtt_p50_ms"
+  ],
+  "per_metric_winner": {
+    "embb_goodput_l2_mbps": "demand_proportional",
+    "be_goodput_l2_mbps": "min_rate_proportional",
+    "urllc_rtt_p50_ms": "demand_proportional"
+  }
+}

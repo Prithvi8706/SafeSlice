@@ -1,6 +1,7 @@
 # Safe Dynamic Network Slicing for SLA-Preserving SDN
 
-**A simulation study of a contextual-bandit slicing controller with a deterministic safety guardrail.**
+**A simulation study of a contextual-bandit slicing controller with a deterministic safety guardrail,
+with its load-bearing assumption checked on real Mininet and Open vSwitch.**
 
 Prithvi Raghu (24BCE2624) · Sumanta Kumar (24BCT0302) · Guide: Sasikala R · SCOPE, VIT
 
@@ -34,8 +35,20 @@ eliminate SLA violations — it acts on the previous interval's telemetry and so
 first interval of an unanticipated spike. What it guarantees is narrower and provable: the applied
 action is always inside the allowed action mask.
 
-The testbed track was not built. Consequently the simulator's load-bearing assumption is
-unverified and every result here is conditional on it.
+Every one of those results rests on one modelling assumption: how leftover link capacity is
+divided among backlogged queues. Under two of three plausible rules URLLC would be protected for
+free and no controller would be needed. We built a Mininet / Open vSwitch testbed to settle it.
+On the real switch, raising the eMBB cap from the lowest to the highest level raises URLLC median
+latency about **77-fold** (0.10 to 7.67 ms) while URLLC throughput stays fully protected, so **the
+control problem exists by measurement**. Of the three sharing rules, only the one the simulator
+study used reproduces that (normalised error 0.110 against 0.230 and 0.300). The simulator is right
+in kind and biased in degree: it underestimates eMBB goodput by 5 to 12 % and overestimates Best
+Effort by 7 to 39 % at every congested level. Finally, the same policy code, unmodified, ran the
+real switch live at 1 s. The loop held on all four runs, but the ranking did not transfer: the
+simulator-trained LinUCB policy, predicted best, tied for last. It holds eMBB bursts at the level the
+simulator rates safe, and on the switch that level's per-second latency straddles the hard limit,
+which a jitter-free simulator cannot show. A policy trained in simulation inherits the simulator's
+blind spots.
 
 ---
 
@@ -355,45 +368,282 @@ is "a model trained offline beats a hand-tuned rule", not "learning is free". `t
 human input too — its thresholds were set against the measured latency-by-level table — but that
 is one-off human effort rather than per-deployment compute.
 
-## 7. Limitations
+## 7. The simulator against a real switch
+
+Every result in §5 and §6 was produced under `sim.excess_sharing: demand_proportional`: leftover
+capacity goes to backlogged queues in proportion to their demand. That choice decides whether the
+control problem exists. Under `equal` sharing, or sharing weighted by guaranteed rate, a backlogged
+URLLC queue claims enough leftover capacity that its latency barely moves whatever cap eMBB is given,
+and the whole study would be a study of an artifact. We flagged this in week one as the largest
+threat to validity and built a testbed to settle it. Full record, with the reading rule for each
+stage written before the stage ran: `docs/PLAN_TESTBED.md`.
+
+### 7.1 Setup
+
+Mininet and Open vSwitch 3.3.9 on WSL2 Ubuntu 24.04, kernel 6.6.87.2. Topology
+`h1,h2,h3 — s1 ═ s2 — h4,h5,h6` with the 10 Mbps bottleneck on `s1 → s2`. Three HTB queues on
+s1's bottleneck port, min-rates from `config/default.yaml`, eMBB ceiling set by the action level.
+Static OpenFlow rules classify by transport port into the queues; ICMP shares the URLLC queue,
+because ping is how URLLC latency is measured and must experience the same queue. iperf3 3.16 UDP
+flows carry the load, `ping -i 0.05` measures URLLC round-trip time.
+
+**The "SDN" here is OVS-native QoS, not an OpenFlow controller.** The data plane is real and
+programmable; allocation decisions go over the OVS management interface (`ovs-vsctl set queue`),
+not OpenFlow.
+
+### 7.2 Three measurement problems, found and corrected before the comparison
+
+**The cap check read the wrong number.** It took iperf3's `end.sum` as receiver goodput; on iperf
+3.16 that field is the sender. Across a 1 Mbit cap `end.sum` read 4.002 Mbps and `sum_received`
+0.976. Corrected, the cap binds exactly: HTB counts whole Ethernet frames, so a 3.5 Mbps cap on
+1,400-byte payloads (1,442-byte frames) predicts 3.398 Mbps of payload, and we measured 3.399. The
+void result is kept under a `superseded` filename.
+
+**The testbed was closed-loop where the simulator is open-loop.** Offered 4× a 3.5 Mbps cap, the
+sender sent 3.53 Mbps and nothing was dropped. With sender and switch in one kernel, packets queued
+in the switch stay charged to the sending socket, which blocks at about 93 frames (134,106 B) before
+the default 1,000-packet queue can fill. A real switch cannot block an application on another
+machine, so this is an emulation artifact. The fix was to give each queue the finite buffer the
+simulator already declared in week one, 62,500 B, not a value fitted to the testbed. Three queue
+sizes were tested with predictions recorded first, and all three held:
+
+| Leaf queue | Predicted | Measured at 4× the cap |
+|---|---|---|
+| OVS default, 1,000 packets | sender blocks | blocks; backlog max 134,106 B |
+| 62,500 B | queue drops | **drops**; backlog max 62,006 B = 43 frames exactly; iperf3 loss and switch drops agree within one packet |
+| 500,000 B (control) | sender blocks | blocks; backlog max 134,106 B again |
+
+The control matters most: two very different limits stopped at the same 134,106 B, so the limit is
+not what caps the backlog. The finite buffer is the testbed default from here on, which also means
+simulator and testbed share the same tail-drop buffer by construction. The same run measured the
+actuator: every `set queue max-rate` change reached the kernel shaper in 21 to 62 ms, at least 16
+times inside the 1 s control interval.
+
+**Host load creates a latency tail that queueing does not.** Idle URLLC RTT over 60 s: p50
+0.093 ms, p95 0.133, p99 0.166, 1,182 samples, zero loss. That replaces the simulator's base latency
+of 2.0 ms, a modelling constant about twenty times larger. Under load with the URLLC queue empty
+(zero backlog, zero drops), the median was unchanged at about 0.1 ms but p99 rose to about 5 ms and
+single replies reached 20 ms. Running ping at real-time priority did not remove it, so it is delay
+below the probe: either the kernel packet path under load or Hyper-V descheduling the virtual CPU;
+the test cannot separate them. **Median RTT is therefore the primary URLLC metric on the testbed**,
+and p95 and p99 are read only against the loaded uncongested floor. A delivery metric that assumed
+exact 0.05 s ping pacing was also fixed here; it now counts gaps in ICMP sequence numbers.
+
+### 7.3 The level sweep: slicing works, and URLLC pays in latency
+
+Constant offered load at the burst operating point (URLLC 3, eMBB 10, Best Effort 4 Mbps, L2), each
+of the five eMBB levels held for 120 s with the first 10 s discarded, three repeats, shuffled order.
+Calibration passed; 15 of 15 runs valid. Mean ± 95 % t interval, n = 3:
+
+| eMBB level | eMBB Mbps | Best Effort Mbps | URLLC median RTT (ms) | URLLC p95 (ms) | URLLC drops |
+|---|---|---|---|---|---|
+| 0.20 | 1.995 ± 0.009 | 3.997 ± 0.015 | 0.10 ± 0.03 | 8.30 ± 10.00 | 0 |
+| 0.35 | 3.270 ± 0.030 | 3.638 ± 0.010 | 2.63 ± 0.21 | 10.18 ± 2.85 | 0 |
+| 0.50 | 4.082 ± 0.083 | 2.812 ± 0.020 | 3.65 ± 0.27 | 15.15 ± 9.31 | 0 |
+| 0.65 | 4.424 ± 0.015 | 2.465 ± 0.022 | 4.44 ± 0.44 | 16.97 ± 0.69 | 0 |
+| 0.80 | 5.087 ± 0.018 | 1.796 ± 0.013 | 7.67 ± 0.24 | 23.86 ± 5.99 | 0 |
+
+- **The caps move capacity as programmed.** eMBB rises and Best Effort falls at every step, with
+  goodput intervals no wider than ± 0.083 Mbps.
+- **URLLC throughput is fully protected:** zero drops and 100 % probe delivery in all 15 runs.
+- **Raising eMBB costs URLLC latency**, about 77-fold in the median from the lowest level to the
+  highest, and the intervals of adjacent levels do not overlap.
+- **Every packet is accounted for.** For eMBB and Best Effort, delivered plus switch drops is 99.6
+  to 100.0 % of offered in every run.
+- **p95 cannot separate the low levels.** At the uncongested 0.20 level it is 8.30 ± 10.00 ms
+  (runs 12.33, 4.29 and 8.28), which is host jitter, as §7.2 predicted. The median separates every
+  level.
+
+The third point answers the question the testbed was built for. **On the real switch URLLC is not
+protected for free; the control problem exists, by measurement rather than by assumption.**
+
+### 7.4 Which sharing rule the switch follows
+
+The simulator was run at the identical constant loads, with jitter off, the same 62,500 B buffers,
+the same measurement window, and the measured 0.093 ms base latency, under each of its three sharing
+modes. With zero jitter each cell is deterministic. The scoring rule was recorded before any of these
+runs: for each metric, normalised mean absolute error (NMAE) is the mean error over the five levels
+divided by the testbed's range for that metric, a mode *tracks* a metric at NMAE ≤ 0.25, and the
+best mode has the lowest mean. URLLC p95 is excluded, since the simulator's p95 equals its median at
+constant load while the testbed's is mostly host jitter.
+
+| Mode | eMBB goodput | Best Effort goodput | URLLC median RTT | Mean NMAE |
+|---|---|---|---|---|
+| `demand_proportional` | 0.085 | 0.158 | 0.087 | **0.110** |
+| `equal` | 0.167 | 0.256 | 0.476 | 0.300 |
+| `min_rate_proportional` | 0.096 | 0.117 | 0.476 | 0.230 |
+
+URLLC median RTT in ms, testbed against each mode:
+
+| Level | Testbed | `demand_proportional` | `equal` | `min_rate_proportional` |
+|---|---|---|---|---|
+| 0.20 | 0.10 ± 0.03 | 0.09 | 0.09 | 0.09 |
+| 0.35 | 2.63 ± 0.21 | 1.31 | 0.09 | 0.09 |
+| 0.50 | 3.65 ± 0.27 | 3.12 | 0.09 | 0.09 |
+| 0.65 | 4.44 ± 0.44 | 4.94 | 0.09 | 0.09 |
+| 0.80 | 7.67 ± 0.24 | 6.76 | 0.09 | 0.09 |
+
+**Classification: `TRACKS_demand_proportional`.** The simulator study was run under the one mode of
+the three that the real switch supports. Figure: `results/summary/figures/fig6_testbed_sweep.png`.
+
+**What is robust.** Only `demand_proportional` reproduces URLLC latency rising with the eMBB level.
+The other two predict the base latency at every level, which the switch contradicts by about 85-fold
+at level 0.80. Their URLLC NMAE of 0.476 fails any threshold that could reasonably be called
+agreement, so this does not depend on the 0.25 cut-off.
+
+**What is threshold-sensitive.** The label holds at thresholds of 0.20 and above. At 0.15 or
+stricter it becomes `PARTIAL`, because Best Effort goodput (0.158) stops counting as tracked.
+
+**What is systematic, not noise.** At every congested level each `demand_proportional` error is
+larger than the testbed's own interval, and the goodput errors always point the same way:
+
+| Level | eMBB goodput error | Best Effort goodput error | URLLC median error |
+|---|---|---|---|
+| 0.35 | −0.154 Mbps (−5 %) | +0.246 (+7 %) | −1.33 ms (−50 %) |
+| 0.50 | −0.332 (−8 %) | +0.438 (+16 %) | −0.53 (−14 %) |
+| 0.65 | −0.240 (−5 %) | +0.351 (+14 %) | +0.51 (+11 %) |
+| 0.80 | −0.587 (−12 %) | +0.704 (+39 %) | −0.91 (−12 %) |
+
+The real switch gives eMBB more and Best Effort less than the model. That `min_rate_proportional`
+fits Best Effort best is consistent with HTB borrowing between eMBB and Best Effort being weighted by
+their guaranteed rates while URLLC's latency behaves demand-driven. That is a hypothesis, not a
+finding.
+
+### 7.5 The policies, live on the switch
+
+The last step runs the policies themselves on the switch. `net/ovs_cli_backend.py` implements the same
+`NetworkBackend` interface as the simulator, reading tc counters and ping every second and actuating
+through `ovs-vsctl set queue`. `run_once`, the policies, the guardrail and the reward are unchanged.
+Four policies, one 300 s run each, on the burst scenario with jitter off, so that iperf3 can follow
+the load (eMBB alternates 2 and 10 Mbps). `linucb_pretrained` is trained in the simulator on the
+held-out seeds and frozen, so on the switch it is a sim-to-real transfer.
+
+**The testbed needs its own SLO.** Under load the per-second p95 carries 4 to 12 ms of host jitter
+with the URLLC queue empty (§7.2), so the guardrail's p95 > 7 ms trigger would fire on the laptop
+rather than the queue. For this experiment only (`config/testbed.yaml`), the guardrail, the reward and
+the threshold policy read the per-second **median**, with limits re-derived from the §7.3 sweep by the
+same placement rule the simulator SLO used: warn 3.0, target 3.5, hard 4.0 ms. The hard limit sits in
+the gap between the level 0.50 and 0.65 intervals. The simulator study's config is untouched; four
+simulator runs hash identically before and after the change. Testbed violation rates are against
+this limit and are not comparable with §5.
+
+**The rule and the prediction were recorded first.** Before the testbed run, the same script ran the
+same protocol in the simulator under the same overlay, and its numbers were written down as the
+prediction (`docs/PLAN_TESTBED.md` section 2.13). So were a loop-health check and a ranking rule:
+`RANKING_MATCHES` or `RANKING_DIFFERS`, with reward gaps under 0.01 counted as indistinguishable,
+since there is one run per policy.
+
+**The loop held.** All four runs were classified `LOOP_OK`:
+- every one of the 1,080 post-warm-up steps had its latency measured and its programmed eMBB cap
+  confirmed in the kernel shaper;
+- every iperf3 sender was on target;
+- intervals were on time in 99.3 to 100 % of steps.
+
+The few late intervals were the loop process waking late from its sleep, host descheduling again; the
+`tc` reads themselves never took more than 14 ms. Two smoke-test runs before this caught one bug in the
+harness, iperf3 reports lost at shutdown, which was fixed and recorded.
+
+| Policy | Mean reward, sim → switch | SLA violations | Guardrail interventions | eMBB Mbps | BE Mbps | URLLC median in eMBB bursts (ms) |
+|---|---|---|---|---|---|---|
+| `static_equal` | 0.1959 → **0.1715** | 0.00 → 0.74 % | 0.00 → 2.96 % | 2.584 → 2.631 | 3.945 → 3.859 | 1.31 → 2.53 |
+| `static_safe` | 0.1127 → 0.1047 | 0.00 → 0.00 % | 0.00 → 0.00 % | 2.000 → 1.998 | 4.000 → 3.996 | 0.09 → 0.07 |
+| `threshold` | 0.1641 → 0.0211 | 1.48 → 5.93 % | 8.89 → 22.96 % | 2.811 → 2.603 | 3.664 → 3.709 | 3.12 → 2.35 |
+| `linucb_pretrained` | **0.2181** → 0.0207 | 0.00 → 6.30 % | 0.00 → 25.19 % | 2.903 → 2.583 | 3.623 → 3.729 | 3.12 → 2.56 |
+
+**Classification: `RANKING_DIFFERS`.** The predicted order was `linucb_pretrained` > `static_equal` >
+`threshold` > `static_safe`. On the switch it was `static_equal` > `static_safe` > `threshold` ≈
+`linucb_pretrained`; the last two differ by 0.0004.
+
+**The mechanism was named before the run.** Both adaptive policies hold eMBB bursts at level 0.50.
+The simulator gives that level a constant 3.12 ms median, under the 3.5 ms target. On the switch,
+the per-second median at level 0.50 during bursts averaged 3.59 ms for `linucb_pretrained`, with a
+standard deviation of 0.76 ms. It **crossed the 4.0 ms hard limit in 24 % of those seconds** (18 % for
+`threshold`).
+- All 17 of `linucb_pretrained`'s violations happened at level 0.50 in a burst.
+- Each one triggered a hard override and a three-step hold-down at level 0.20. It ended up spending
+  64 of 140 burst steps there, against none in the simulator, and gave up eMBB throughput to the
+  guardrail.
+- `static_equal` holds level 0.35, whose median of 2.53 ms is well clear of the limit, and lost
+  almost nothing.
+
+Two things the simulator lacks produced this: its bias at level 0.50 (§7.4, 3.65 measured against 3.12
+predicted), and second-to-second scatter in the median, which a jitter-free fluid model does not have.
+
+**What the static policies confirm.**
+- `static_safe` matches its prediction within 0.01 Mbps on both goodputs.
+- `static_equal` shows the §7.4 bias in the predicted direction: more eMBB, less Best Effort, and a
+  higher URLLC median at level 0.35.
+
+**What this does and does not show.** It does not show that `static_equal` is a better policy than
+`linucb_pretrained` in general. That would rest on one run per policy, at one operating point, under
+a hard limit 0.35 ms above the measured level-0.50 median. What it does show is narrower, and robust to
+all of that: **a policy trained in a simulator inherits the simulator's blind spots.** The learned
+policy chose the level the simulator rated safe; on the switch, that is the level whose latency
+straddles the limit. The guardrail did its job, holding violations to 6.3 % against a cost in
+throughput, but it could not make the learned operating point a good one.
+
+### 7.6 What this changes in §5 and §6
+
+The largest threat to validity is narrowed rather than removed.
+- The simulator's sharing rule is right in kind, so the control problem the policies were evaluated
+  on is real.
+- It is biased in degree, so absolute throughput numbers from the simulator should not be read as
+  predictions for a switch.
+- The check covers one operating point at constant load. It does not show the simulator agrees under
+  the jittered scenarios the policies were scored on.
+
+§7.5 adds a sharper qualification. **The policy ranking in §5 is a property of the simulator. It did
+not survive transfer to a real switch at the one point tested.** The online-versus-converged contrast
+in §5.1, and the context ablation in §5.2, were never run on hardware.
+
+## 8. Limitations
 
 Ordered by how much they threaten the conclusions.
 
-1. **The simulator is unvalidated.** One assumption — how leftover capacity is divided among
-   backlogged queues — decides whether the control problem exists at all. Under an equal-share
-   rule URLLC is largely protected for free and no controller is needed. We chose the pessimistic
-   setting and made it configurable and testable, but "we chose the setting under which our method
-   is useful" is a real threat and the comparison against real Open vSwitch that would settle it
-   was never run.
-2. **The reward weights decide which baseline ranks second** (§6), though not which policy wins.
+1. **The simulator is checked at one operating point, at constant load** (§7). It tracks the real
+   switch in kind and is systematically biased in degree. Agreement under the fluctuating traffic
+   of §5 is not shown.
+2. **The policy ranking did not transfer to the real switch** (§7.5). That rests on one run per
+   policy, at one operating point, on one scenario. But the simulator's predicted winner tied for
+   last, for a reason a jitter-free simulator cannot represent. Every policy comparison in §5 and §6
+   is a simulator result.
+3. **The testbed cannot resolve tail latency at the scale the SLA uses.** Host jitter puts the
+   uncongested p95 at 4 to 12 ms against a 7 ms limit, so p95 on this hardware measures the laptop
+   as much as the queue (§7.2).
+4. **The reward weights decide which baseline ranks second** (§6), though not which policy wins.
    The weights used throughout §5 are a defensible choice, not the only one.
-3. **Rounds are not independent** (§2), which is not what a bandit assumes.
-4. **Ten seeds of one simulator is not ten samples of reality.** The intervals describe seed
+5. **Rounds are not independent** (§2), which is not what a bandit assumes.
+6. **Ten seeds of one simulator is not ten samples of reality.** The intervals describe seed
    variation and nothing else.
-5. **The scenarios are hand-written**, and `adversarial` was designed against the guardrail's known
+7. **The scenarios are hand-written**, and `adversarial` was designed against the guardrail's known
    weakness. It is a stress test, not a traffic model.
-6. **Single operating point.** One capacity, one set of guarantees, one control interval.
+8. **The "SDN" is OVS-native QoS, not an OpenFlow controller** (§7.1).
+9. **Single operating point** in the simulator too: one capacity, one set of guarantees, one control
+   interval.
 
 ### What was not built
 
-The Mininet / Open vSwitch / Ryu track does not exist: no `OvsCliBackend`, no topology, no
-iperf3 traffic generator, no controller app, no noise-floor measurement. The development machine
-had no Mininet, no OVS and no root.
-
-The cost is not cosmetic. The sim-versus-hardware comparison was the gate this project set for
-itself, and it was never evaluated. There is no measured noise floor, so the SLO is derived from
-the simulator's own range rather than from hardware. And the action reaches a simulated token
-bucket rather than a switch, so the OpenFlow actuation path in the original proposal is
-unimplemented.
+- **A testbed version of the full policy study.** §7.5 is four runs on one scenario. The 320-run
+  comparison, the online bandits and the context ablation were never run on hardware, and would take
+  over a day of real time per seed.
+- **`RyuBackend` and an OpenFlow controller app**, deliberately. Ryu is unmaintained, and a
+  controller closes no validity gap that the OVS management interface leaves open.
 
 **The defensible description of this work is a simulation study of a control policy and a safety
-mechanism, with testbed evaluation as future work** — not an SDN implementation evaluated in
-emulation.
+mechanism, whose central modelling assumption was checked against a real programmable switch, and
+whose policies were then run live on that switch.** It is not an SDN controller evaluated end to end
+in emulation, and not a policy comparison validated on hardware.
 
-## 8. Conclusion
+## 9. Conclusion
 
-A contextual bandit plus a deterministic guardrail is a workable design for SLA-preserving dynamic
-slicing, with three qualifications that this study establishes rather than assumes.
+**The control problem is real.** On a real Open vSwitch, giving eMBB more of the link costs URLLC
+about 77-fold in median latency while its throughput stays protected, and of three plausible
+models of the scheduler only the one this study used reproduces that. The simulator is right in
+kind and biased in degree, checked at one operating point.
+
+Within that problem, a contextual bandit plus a deterministic guardrail is a workable design for
+SLA-preserving dynamic slicing, with three qualifications that this study establishes rather than
+assumes.
 
 **Exploration is the deciding cost.** Online LinUCB loses to a well-tuned reactive threshold on
 most scenarios; pre-trained and frozen, it wins on most, with fewer violations. If a deployment
@@ -408,8 +658,13 @@ by adversarial spikes more than twice as often as a converged contextual one on 
 it does not bound the violation rate, because it reacts to the previous interval. Systems claiming
 safety from such a mechanism should state which of the two they mean.
 
-The immediate future work is not a better algorithm — it is the testbed comparison that would tell
-us whether any of this transfers.
+**A simulator-trained policy inherits the simulator's blind spots.** Run live on the switch, the
+converged bandit chose the operating point the simulator rated safe, and there the real latency
+straddled the limit. The guardrail contained the damage; it could not make the choice a good one.
+
+The immediate future work is therefore not a better algorithm. It is one of two things. Either a
+simulator with per-second latency noise calibrated to hardware, or training on the switch itself.
+Either should be followed by repeated live runs that can separate policies statistically.
 
 ---
 
@@ -428,11 +683,25 @@ motivation and are **not** compared against by measurement.
 
 ## Reproducing
 
+Simulator, any machine, no privileges:
+
 ```bash
-pip install -r requirements.txt && pytest -q     # 121 tests
+pip install -r requirements.txt && pytest -q     # 253 tests
 python experiments/run_suite.py                  # 320 runs -> results/raw/
-python -m analysis.aggregate                     # every table above
-python -m analysis.plots                         # every figure
+python -m analysis.aggregate                     # every simulator table
+python -m analysis.plots                         # every simulator figure
+```
+
+Testbed, Linux with root; setup in `docs/TESTBED_SETUP.md`:
+
+```bash
+python3 net/topology/slice_topo.py --check              # topology, queues, cap binding
+python3 experiments/measure_noise_floor.py              # idle latency floor
+python3 experiments/sweep_levels_ovs.py                 # 15 runs, about 32 min
+python experiments/compare_sim_vs_ovs.py                # the §7.4 comparison
+python -m analysis.plot_testbed                         # figure 6
+python experiments/run_policies_ovs.py --backend sim    # the §7.5 prediction, any machine
+python3 experiments/run_policies_ovs.py --backend ovs_cli   # §7.5 on the switch, 4 x 300 s
 ```
 
 Every table is recomputed from per-step logs rather than read from a cache, so a changed metric

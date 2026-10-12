@@ -1,0 +1,68 @@
+{
+  "args": {
+    "scenario": "burst",
+    "duration": 30.0,
+    "warmup": 5.0,
+    "repeats": 1,
+    "seed": 0,
+    "ping_interval": 0.05,
+    "quick": true,
+    "calibrate_only": false,
+    "out_prefix": null
+  },
+  "levels": [
+    0.2,
+    0.35,
+    0.5,
+    0.65,
+    0.8
+  ],
+  "offered_l2_bps": {
+    "urllc": 3000000.0,
+    "embb": 10000000.0,
+    "be": 4000000.0
+  },
+  "order": [
+    {
+      "position": 0,
+      "repeat": 0,
+      "level_index": 2
+    },
+    {
+      "position": 1,
+      "repeat": 0,
+      "level_index": 1
+    },
+    {
+      "position": 2,
+      "repeat": 0,
+      "level_index": 0
+    },
+    {
+      "position": 3,
+      "repeat": 0,
+      "level_index": 4
+    },
+    {
+      "position": 4,
+      "repeat": 0,
+      "level_index": 3
+    }
+  ],
+  "env_start": {
+    "collected_at_iso": "2026-09-13T05:56:57+0000",
+    "kernel_release": "6.6.87.2-microsoft-standard-WSL2",
+    "python_version": "3.12.3",
+    "cpu_count": 22,
+    "loadavg": [
+      0.080078125,
+      0.0166015625,
+      0.00537109375
+    ],
+    "ovs_version": "ovs-vsctl (Open vSwitch) 3.3.9\nDB Schema 8.5.1",
+    "iperf3_version": "iperf 3.16 (cJSON 1.7.15)\nLinux PRITHVI 6.6.87.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025 x86_64\nOptional features available: CPU affinity setting, IPv6 flow label, SCTP, TCP congestion algorithm setting, sendfile / zerocopy, socket pacing, authentication, bind to device, support IPv4 don't fragment, POSIX threads",
+    "git_commit": "e0e39367423183bfff8ad07d534d6afe89e568e4",
+    "config_hash": "62a1fe936861dc87",
+    "leaf_limit_bytes": 62500
+  }
+}

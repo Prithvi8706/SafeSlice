@@ -1,0 +1,626 @@
+{
+  "backend": "ovs_cli",
+  "scenario": "burst",
+  "seed": 0,
+  "duration_s": 300.0,
+  "warmup_s": 30.0,
+  "order": [
+    "threshold",
+    "static_safe",
+    "static_equal",
+    "linucb_pretrained"
+  ],
+  "rule": "docs/PLAN_TESTBED.md section 2.13",
+  "testbed_overlay": {
+    "link": {
+      "base_rtt_ms": 0.093
+    },
+    "sla": {
+      "target_ms": 3.5,
+      "hard_ms": 4.0
+    },
+    "guardrail": {
+      "warn_ms": 3.0
+    },
+    "context": {
+      "fast_rtt_statistic": "urllc_rtt_ms_p50"
+    },
+    "reward": {
+      "rtt_statistic": "urllc_rtt_ms_p50"
+    },
+    "policy": {
+      "threshold": {
+        "up_ms": 3.5,
+        "down_ms": 2.0
+      }
+    }
+  },
+  "config_hash_eval": "e0570866fd8bb59b",
+  "config_hash_train": "85c7b9604c559abb",
+  "runs": {
+    "threshold": {
+      "csv": "results/testbed_policies/ovs_cli/threshold_burst_0.csv",
+      "metrics": {
+        "policy": "threshold",
+        "scenario": "burst",
+        "seed": 0,
+        "n_steps": 270,
+        "urllc_rtt_p50": 0.2815,
+        "urllc_rtt_p95": 9.153299999999998,
+        "urllc_rtt_p99": 12.016150000000001,
+        "sla_violation_rate": 0.05925925925925926,
+        "embb_goodput_mbps": 2.6028975764125275,
+        "be_goodput_mbps": 3.708766467102064,
+        "total_drops": 89679,
+        "guardrail_intervention_rate": 0.22962962962962963,
+        "decision_latency_mean_ms": 0.1067918629781127,
+        "decision_latency_p99_ms": 0.13204923004195734,
+        "mean_reward": 0.02107560879717178,
+        "link_util_mean": 0.9321249193356849
+      },
+      "loop": {
+        "label": "LOOP_OK",
+        "failed_checks": [],
+        "post_warmup_steps": 270,
+        "share_on_time": 0.9925925925925926,
+        "share_rtt_measured": 1.0,
+        "share_ceil_confirmed": 1.0,
+        "share_counters_ok": 1.0,
+        "segments": 10,
+        "segments_sender_on_target": 10,
+        "max_lateness_s": -0.3688013553619385,
+        "steps_rtt_missing": 0
+      },
+      "segment_reports": [
+        {
+          "slice": "urllc",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5201,
+          "requested_l2_bps": 3000000.0,
+          "duration_s": 300,
+          "parse_ok": true,
+          "sender_bps": 2912528.04872323,
+          "receiver_bps": 2912520.1754985675
+        },
+        {
+          "slice": "embb",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941773.6404228313,
+          "receiver_bps": 1925230.9175602535
+        },
+        {
+          "slice": "be",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5203,
+          "requested_l2_bps": 4000000.0,
+          "duration_s": 300,
+          "parse_ok": true,
+          "sender_bps": 3883484.1294608177,
+          "receiver_bps": 3634889.743612589
+        },
+        {
+          "slice": "embb",
+          "segment": 1,
+          "start_step": 40,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708690.430493714,
+          "receiver_bps": 2868724.197742848
+        },
+        {
+          "slice": "embb",
+          "segment": 2,
+          "start_step": 75,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941777.9608201447,
+          "receiver_bps": 1907727.070234637
+        },
+        {
+          "slice": "embb",
+          "segment": 3,
+          "start_step": 115,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708716.78242758,
+          "receiver_bps": 3091879.0542947515
+        },
+        {
+          "slice": "embb",
+          "segment": 4,
+          "start_step": 150,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941781.69870749,
+          "receiver_bps": 1931288.0585163725
+        },
+        {
+          "slice": "embb",
+          "segment": 5,
+          "start_step": 190,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708715.395480126,
+          "receiver_bps": 2996613.6209021457
+        },
+        {
+          "slice": "embb",
+          "segment": 6,
+          "start_step": 225,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941785.2424321575,
+          "receiver_bps": 1934966.8826543791
+        },
+        {
+          "slice": "embb",
+          "segment": 7,
+          "start_step": 265,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9705992.74958274,
+          "receiver_bps": 3293018.4420992876
+        }
+      ]
+    },
+    "static_safe": {
+      "csv": "results/testbed_policies/ovs_cli/static_safe_burst_0.csv",
+      "metrics": {
+        "policy": "static_safe",
+        "scenario": "burst",
+        "seed": 0,
+        "n_steps": 270,
+        "urllc_rtt_p50": 0.0775,
+        "urllc_rtt_p95": 2.2657999999999996,
+        "urllc_rtt_p99": 2.4693050000000003,
+        "sla_violation_rate": 0.0,
+        "embb_goodput_mbps": 1.9978471084966147,
+        "be_goodput_mbps": 3.99561545141705,
+        "total_drops": 96733,
+        "guardrail_intervention_rate": 0.0,
+        "decision_latency_mean_ms": 0.02701471853806984,
+        "decision_latency_p99_ms": 0.06670413001302222,
+        "mean_reward": 0.10469095216995078,
+        "link_util_mean": 0.900442425784064
+      },
+      "loop": {
+        "label": "LOOP_OK",
+        "failed_checks": [],
+        "post_warmup_steps": 270,
+        "share_on_time": 0.9925925925925926,
+        "share_rtt_measured": 1.0,
+        "share_ceil_confirmed": 1.0,
+        "share_counters_ok": 1.0,
+        "segments": 10,
+        "segments_sender_on_target": 10,
+        "max_lateness_s": -0.5596611499786377,
+        "steps_rtt_missing": 0
+      },
+      "segment_reports": [
+        {
+          "slice": "urllc",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5201,
+          "requested_l2_bps": 3000000.0,
+          "duration_s": 300,
+          "parse_ok": true,
+          "sender_bps": 2912631.2394705745,
+          "receiver_bps": 2912622.385108943
+        },
+        {
+          "slice": "embb",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941775.77634719,
+          "receiver_bps": 1941660.443155648
+        },
+        {
+          "slice": "be",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5203,
+          "requested_l2_bps": 4000000.0,
+          "duration_s": 300,
+          "parse_ok": true,
+          "sender_bps": 3883337.27473591,
+          "receiver_bps": 3883332.886740061
+        },
+        {
+          "slice": "embb",
+          "segment": 1,
+          "start_step": 40,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708682.941022824,
+          "receiver_bps": 1941584.2512993808
+        },
+        {
+          "slice": "embb",
+          "segment": 2,
+          "start_step": 75,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941778.6889788886,
+          "receiver_bps": 1920728.7011204325
+        },
+        {
+          "slice": "embb",
+          "segment": 3,
+          "start_step": 115,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708639.668750614,
+          "receiver_bps": 1938345.7455632435
+        },
+        {
+          "slice": "embb",
+          "segment": 4,
+          "start_step": 150,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941778.2520835768,
+          "receiver_bps": 1920411.572413491
+        },
+        {
+          "slice": "embb",
+          "segment": 5,
+          "start_step": 190,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708369.3245897,
+          "receiver_bps": 1938444.3934948617
+        },
+        {
+          "slice": "embb",
+          "segment": 6,
+          "start_step": 225,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941786.3104065116,
+          "receiver_bps": 1919326.5066355085
+        },
+        {
+          "slice": "embb",
+          "segment": 7,
+          "start_step": 265,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708727.60063132,
+          "receiver_bps": 1938392.263905387
+        }
+      ]
+    },
+    "static_equal": {
+      "csv": "results/testbed_policies/ovs_cli/static_equal_burst_0.csv",
+      "metrics": {
+        "policy": "static_equal",
+        "scenario": "burst",
+        "seed": 0,
+        "n_steps": 270,
+        "urllc_rtt_p50": 0.3135,
+        "urllc_rtt_p95": 7.29395,
+        "urllc_rtt_p99": 7.93795,
+        "sla_violation_rate": 0.007407407407407408,
+        "embb_goodput_mbps": 2.631459221708141,
+        "be_goodput_mbps": 3.85905634585559,
+        "total_drops": 85514,
+        "guardrail_intervention_rate": 0.02962962962962963,
+        "decision_latency_mean_ms": 0.02578598149975054,
+        "decision_latency_p99_ms": 0.10456669032464556,
+        "mean_reward": 0.17150025804912739,
+        "link_util_mean": 0.9503934210069231
+      },
+      "loop": {
+        "label": "LOOP_OK",
+        "failed_checks": [],
+        "post_warmup_steps": 270,
+        "share_on_time": 1.0,
+        "share_rtt_measured": 1.0,
+        "share_ceil_confirmed": 1.0,
+        "share_counters_ok": 1.0,
+        "segments": 10,
+        "segments_sender_on_target": 10,
+        "max_lateness_s": -0.9511337280273438,
+        "steps_rtt_missing": 0
+      },
+      "segment_reports": [
+        {
+          "slice": "urllc",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5201,
+          "requested_l2_bps": 3000000.0,
+          "duration_s": 300,
+          "parse_ok": true,
+          "sender_bps": 2912630.7831589556,
+          "receiver_bps": 2912576.269512463
+        },
+        {
+          "slice": "embb",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941780.6307382083,
+          "receiver_bps": 1940799.6633335263
+        },
+        {
+          "slice": "be",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5203,
+          "requested_l2_bps": 4000000.0,
+          "duration_s": 300,
+          "parse_ok": true,
+          "sender_bps": 3883481.1521282354,
+          "receiver_bps": 3760566.242041738
+        },
+        {
+          "slice": "embb",
+          "segment": 1,
+          "start_step": 40,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708752.56580889,
+          "receiver_bps": 3179602.169080601
+        },
+        {
+          "slice": "embb",
+          "segment": 2,
+          "start_step": 75,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941775.82489098,
+          "receiver_bps": 1930950.002013149
+        },
+        {
+          "slice": "embb",
+          "segment": 3,
+          "start_step": 115,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708723.717170794,
+          "receiver_bps": 2895154.8377191783
+        },
+        {
+          "slice": "embb",
+          "segment": 4,
+          "start_step": 150,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941780.9705464887,
+          "receiver_bps": 1930371.4342322666
+        },
+        {
+          "slice": "embb",
+          "segment": 5,
+          "start_step": 190,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9705815.33772628,
+          "receiver_bps": 3188077.8215385685
+        },
+        {
+          "slice": "embb",
+          "segment": 6,
+          "start_step": 225,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941780.8734583964,
+          "receiver_bps": 1932029.336053929
+        },
+        {
+          "slice": "embb",
+          "segment": 7,
+          "start_step": 265,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708699.86169571,
+          "receiver_bps": 3203516.5511644827
+        }
+      ]
+    },
+    "linucb_pretrained": {
+      "csv": "results/testbed_policies/ovs_cli/linucb_pretrained_burst_0.csv",
+      "metrics": {
+        "policy": "linucb_pretrained",
+        "scenario": "burst",
+        "seed": 0,
+        "n_steps": 270,
+        "urllc_rtt_p50": 0.08124999999999996,
+        "urllc_rtt_p95": 8.532074999999995,
+        "urllc_rtt_p99": 9.89938,
+        "sla_violation_rate": 0.06296296296296296,
+        "embb_goodput_mbps": 2.5833913299217492,
+        "be_goodput_mbps": 3.728907499135634,
+        "total_drops": 89725,
+        "guardrail_intervention_rate": 0.2518518518518518,
+        "decision_latency_mean_ms": 0.0865670740697371,
+        "decision_latency_p99_ms": 0.21564828989539817,
+        "mean_reward": 0.020690484950370965,
+        "link_util_mean": 0.9326211340061195
+      },
+      "loop": {
+        "label": "LOOP_OK",
+        "failed_checks": [],
+        "post_warmup_steps": 270,
+        "share_on_time": 1.0,
+        "share_rtt_measured": 1.0,
+        "share_ceil_confirmed": 1.0,
+        "share_counters_ok": 1.0,
+        "segments": 10,
+        "segments_sender_on_target": 10,
+        "max_lateness_s": -0.9130792617797852,
+        "steps_rtt_missing": 0
+      },
+      "segment_reports": [
+        {
+          "slice": "urllc",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5201,
+          "requested_l2_bps": 3000000.0,
+          "duration_s": 300,
+          "parse_ok": true,
+          "sender_bps": 2912632.6278238273,
+          "receiver_bps": 2912626.5792735317
+        },
+        {
+          "slice": "embb",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941761.4074920262,
+          "receiver_bps": 1941734.369378315
+        },
+        {
+          "slice": "be",
+          "segment": 0,
+          "start_step": 0,
+          "port": 5203,
+          "requested_l2_bps": 4000000.0,
+          "duration_s": 300,
+          "parse_ok": true,
+          "sender_bps": 3883485.074441244,
+          "receiver_bps": 3646750.2464820207
+        },
+        {
+          "slice": "embb",
+          "segment": 1,
+          "start_step": 40,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708525.66480336,
+          "receiver_bps": 3059181.51551624
+        },
+        {
+          "slice": "embb",
+          "segment": 2,
+          "start_step": 75,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941781.5045311695,
+          "receiver_bps": 1932623.6316749167
+        },
+        {
+          "slice": "embb",
+          "segment": 3,
+          "start_step": 115,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708681.27669753,
+          "receiver_bps": 3017150.2270781174
+        },
+        {
+          "slice": "embb",
+          "segment": 4,
+          "start_step": 150,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941753.689174513,
+          "receiver_bps": 1932752.5962296259
+        },
+        {
+          "slice": "embb",
+          "segment": 5,
+          "start_step": 190,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708751.178851213,
+          "receiver_bps": 2792973.939831968
+        },
+        {
+          "slice": "embb",
+          "segment": 6,
+          "start_step": 225,
+          "port": 5202,
+          "requested_l2_bps": 2000000.0,
+          "duration_s": 40,
+          "parse_ok": true,
+          "sender_bps": 1941781.1161786453,
+          "receiver_bps": 1927022.9653289618
+        },
+        {
+          "slice": "embb",
+          "segment": 7,
+          "start_step": 265,
+          "port": 5212,
+          "requested_l2_bps": 10000000.0,
+          "duration_s": 35,
+          "parse_ok": true,
+          "sender_bps": 9708724.27195068,
+          "receiver_bps": 3228027.8327758354
+        }
+      ]
+    }
+  }
+}
