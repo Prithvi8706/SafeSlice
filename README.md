@@ -13,33 +13,34 @@ caps, and is scored on a reward that trades throughput against SLA damage.
 
 ## Read this first: what is and is not measured here
 
-**Everything in this repository runs on a simulator.** `net/sim_backend.py` is a per-queue token
-bucket feeding a work-conserving shared link, written to match the semantics of an Open vSwitch
-HTB queue. It has **not** been validated against real Open vSwitch, and its load-bearing
-assumption — how leftover capacity is divided between backlogged queues — is a modelling choice,
-not a measurement. `docs/DESIGN.md` section 2 says exactly what that assumption is and what
-happens to the project's conclusions if reality behaves differently.
+The project has two halves, and their numbers must not be mixed.
 
-So: the numbers here are real, reproducible, and produced by code in this repository that
-actually ran. They are simulator numbers. They are not testbed numbers and must not be quoted as
-such.
+**The policy study runs on a simulator.** `net/sim_backend.py` is a per-queue token bucket feeding a
+work-conserving shared link, written to match an Open vSwitch HTB queue. The headline result below,
+and every table with intervals, are simulator numbers.
+
+**A Mininet / Open vSwitch testbed checks the simulator** (WSL2 Ubuntu 24.04; `docs/REPORT.md`
+section 7, full record in `docs/PLAN_TESTBED.md`). It did three things.
+
+1. **It tested the simulator's load-bearing assumption**: how leftover capacity is divided among
+   backlogged queues. On the real switch, raising the eMBB cap raises URLLC median latency about
+   77-fold while URLLC throughput stays protected. Of three sharing modes, only the simulator's
+   `demand_proportional` reproduces that. The simulator is right in kind and biased in degree: it
+   underestimates eMBB goodput by 5 to 12 % and overestimates Best Effort by 7 to 39 %.
+2. **It ran the policies live on the switch** through the unmodified runner, via
+   `net/ovs_cli_backend.py`. The loop held on all four runs.
+3. **It showed the ranking did not transfer.** The simulator-trained LinUCB policy, predicted best,
+   tied for last: it holds eMBB bursts at a level whose real per-second latency straddles the hard
+   limit, which the jitter-free simulator cannot show. One run per policy, so this does not rank
+   policies on hardware. It does show that a policy trained in simulation inherits the simulator's
+   blind spots.
 
 ### Not built
 
-The original plan (`docs/PLAN.md`) had a Mininet/OVS/Ryu testbed track. None of it exists:
-
 | Component | Status |
 |---|---|
-| `OvsCliBackend`, Mininet topology, `traffic/generator.py` (iperf3/ping) | not written |
-| `experiments/measure_noise_floor.py`, testbed SLO derivation | not written |
-| `RyuBackend`, `controller/ryu_app.py`, the Ryu feasibility check | not written |
-| Simulator-vs-real-OVS comparison | not run |
-
-The development machine is Windows with no Mininet, no OVS, no root, so none of it could have
-been executed here, and unexecuted code that drives real network hardware is not worth much. The
-abstraction it would plug into does exist and is unused-but-ready: `net/backend.py` defines the
-`NetworkBackend` contract, and the runner, policies, guardrail and metrics are all written
-against it rather than against the simulator.
+| The full 320-run policy study on hardware | not run; stage 6 is four runs on one scenario |
+| `RyuBackend`, `controller/ryu_app.py` (an OpenFlow controller) | deliberately out of scope; the "SDN" here is OVS-native QoS driven over `ovs-vsctl` |
 
 ---
 
@@ -91,7 +92,23 @@ One caveat kept in view: the converged variant consumes five extra training runs
 so this reads as "a model trained offline beats a hand-tuned rule", not "learning is free".
 
 Full numbers, including what each of these is not allowed to be read as, in
-`docs/EXPERIMENTS.md` and `docs/REPORT_OUTLINE.md`.
+`docs/EXPERIMENTS.md` and `docs/REPORT_OUTLINE.md`. Every result in this section is a simulator
+result; `docs/REPORT.md` section 7.5 is what happened when the same policies ran on the real switch.
+
+---
+
+## The testbed
+
+Linux with root; setup in `docs/TESTBED_SETUP.md`.
+
+```bash
+python3 net/topology/slice_topo.py --check                  # topology, queues, cap binding
+python3 experiments/measure_noise_floor.py                  # idle latency floor
+python3 experiments/sweep_levels_ovs.py                     # five fixed caps on real OVS, ~32 min
+python experiments/compare_sim_vs_ovs.py                    # simulator against the switch
+python experiments/run_policies_ovs.py --backend sim        # live-loop prediction, any machine
+python3 experiments/run_policies_ovs.py --backend ovs_cli   # the policies live on OVS, ~23 min
+```
 
 ---
 
@@ -153,26 +170,31 @@ one would understate what the method does once it has been running a while.
 ## Layout
 
 ```
-config/            default.yaml plus four traffic scenarios
-net/               NetworkBackend contract, and the simulator behind it
-traffic/           deterministic per-seed offered-load traces
+config/            default.yaml, four traffic scenarios, testbed.yaml (the testbed SLO)
+net/               NetworkBackend contract, the simulator, OvsCliBackend, the Mininet topology
+traffic/           deterministic offered-load traces; iperf3 and ping orchestration
 agent/             context features, reward, guardrail, bandits, policies
 analysis/          the CSV schema, metric definitions, aggregation, figures
-experiments/       one run, the full grid, hyperparameter sweeps, sensitivity study
+experiments/       one run, the full grid, sweeps, sensitivity, and the testbed experiments
 tests/             the suite; `pytest -q`
-docs/              PLAN, DESIGN, EXPERIMENTS, SETUP, REPORT_OUTLINE
-results/raw/       per-step logs, one CSV plus an env.json fingerprint per run
-results/summary/   seed-averaged tables and figures, all regenerable
+docs/              REPORT, OVERVIEW, PLAN, PLAN_TESTBED, DESIGN, EXPERIMENTS, SETUP, TESTBED_SETUP
+results/raw/       per-step simulator logs (regenerable, not committed)
+results/testbed_policies/  per-step logs of the live policy runs, simulator and real OVS
+results/summary/   tables, testbed results and figures
 ```
 
 ## Documentation
 
-- **`docs/REPORT.md` — the write-up: abstract, method, results, limitations, conclusion.**
+- **`docs/REPORT.md` — the write-up: abstract, method, results, the testbed (section 7),
+  limitations, conclusion.**
+- `docs/OVERVIEW.md` — the whole project start to end, in one narrative.
+- `docs/PLAN_TESTBED.md` — the testbed plan, and every result with the rule recorded before it.
+- `docs/TESTBED_SETUP.md` — installing and running Mininet and OVS on WSL2.
 - `docs/DECK_REVISIONS.md` — slide-by-slide reconciliation of the proposal deck with what was built.
 - `docs/DESIGN.md` — the design decisions, each with the reasoning and the limitation.
 - `docs/EXPERIMENTS.md` — the protocol, the metric definitions, and the results tables.
 - `docs/REPORT_OUTLINE.md` — what the write-up says, and the claims it is not allowed to make.
-- `docs/SETUP.md` — environments. Its VM sections describe a testbed that was never built.
+- `docs/SETUP.md` — environments. Its VM sections are superseded by `docs/TESTBED_SETUP.md`.
 - `docs/PLAN.md` — the original six-week plan, kept as written for the record.
 
 ## Reproducibility

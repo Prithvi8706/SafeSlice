@@ -43,8 +43,12 @@ latency about **77-fold** (0.10 to 7.67 ms) while URLLC throughput stays fully p
 control problem exists by measurement**. Of the three sharing rules, only the one the simulator
 study used reproduces that (normalised error 0.110 against 0.230 and 0.300). The simulator is right
 in kind and biased in degree: it underestimates eMBB goodput by 5 to 12 % and overestimates Best
-Effort by 7 to 39 % at every congested level. That check covers one operating point at constant
-load, and no policy was run live on the switch.
+Effort by 7 to 39 % at every congested level. Finally, the same policy code, unmodified, ran the
+real switch live at 1 s. The loop held on all four runs, but the ranking did not transfer: the
+simulator-trained LinUCB policy, predicted best, tied for last. It holds eMBB bursts at the level the
+simulator rates safe, and on the switch that level's per-second latency straddles the hard limit,
+which a jitter-free simulator cannot show. A policy trained in simulation inherits the simulator's
+blind spots.
 
 ---
 
@@ -505,13 +509,92 @@ fits Best Effort best is consistent with HTB borrowing between eMBB and Best Eff
 their guaranteed rates while URLLC's latency behaves demand-driven. That is a hypothesis, not a
 finding.
 
-### 7.5 What this changes in §5 and §6
+### 7.5 The policies, live on the switch
 
-The largest threat to validity is narrowed rather than removed. The simulator's sharing rule is the
-right one in kind, so the control problem the policies were evaluated on is real. It is biased in
-degree, so absolute throughput numbers from the simulator should not be read as predictions for a
-switch. The check covers one operating point at constant load; it does not show the simulator
-agrees under the jittered scenarios the policies were scored on.
+The last step runs the policies themselves on the switch. `net/ovs_cli_backend.py` implements the same
+`NetworkBackend` interface as the simulator, reading tc counters and ping every second and actuating
+through `ovs-vsctl set queue`. `run_once`, the policies, the guardrail and the reward are unchanged.
+Four policies, one 300 s run each, on the burst scenario with jitter off, so that iperf3 can follow
+the load (eMBB alternates 2 and 10 Mbps). `linucb_pretrained` is trained in the simulator on the
+held-out seeds and frozen, so on the switch it is a sim-to-real transfer.
+
+**The testbed needs its own SLO.** Under load the per-second p95 carries 4 to 12 ms of host jitter
+with the URLLC queue empty (§7.2), so the guardrail's p95 > 7 ms trigger would fire on the laptop
+rather than the queue. For this experiment only (`config/testbed.yaml`), the guardrail, the reward and
+the threshold policy read the per-second **median**, with limits re-derived from the §7.3 sweep by the
+same placement rule the simulator SLO used: warn 3.0, target 3.5, hard 4.0 ms. The hard limit sits in
+the gap between the level 0.50 and 0.65 intervals. The simulator study's config is untouched; four
+simulator runs hash identically before and after the change. Testbed violation rates are against
+this limit and are not comparable with §5.
+
+**The rule and the prediction were recorded first.** Before the testbed run, the same script ran the
+same protocol in the simulator under the same overlay, and its numbers were written down as the
+prediction (`docs/PLAN_TESTBED.md` section 2.13). So were a loop-health check and a ranking rule:
+`RANKING_MATCHES` or `RANKING_DIFFERS`, with reward gaps under 0.01 counted as indistinguishable,
+since there is one run per policy.
+
+**The loop held.** All four runs were classified `LOOP_OK`:
+- every one of the 1,080 post-warm-up steps had its latency measured and its programmed eMBB cap
+  confirmed in the kernel shaper;
+- every iperf3 sender was on target;
+- intervals were on time in 99.3 to 100 % of steps.
+
+The few late intervals were the loop process waking late from its sleep, host descheduling again; the
+`tc` reads themselves never took more than 14 ms. Two smoke-test runs before this caught one bug in the
+harness, iperf3 reports lost at shutdown, which was fixed and recorded.
+
+| Policy | Mean reward, sim → switch | SLA violations | Guardrail interventions | eMBB Mbps | BE Mbps | URLLC median in eMBB bursts (ms) |
+|---|---|---|---|---|---|---|
+| `static_equal` | 0.1959 → **0.1715** | 0.00 → 0.74 % | 0.00 → 2.96 % | 2.584 → 2.631 | 3.945 → 3.859 | 1.31 → 2.53 |
+| `static_safe` | 0.1127 → 0.1047 | 0.00 → 0.00 % | 0.00 → 0.00 % | 2.000 → 1.998 | 4.000 → 3.996 | 0.09 → 0.07 |
+| `threshold` | 0.1641 → 0.0211 | 1.48 → 5.93 % | 8.89 → 22.96 % | 2.811 → 2.603 | 3.664 → 3.709 | 3.12 → 2.35 |
+| `linucb_pretrained` | **0.2181** → 0.0207 | 0.00 → 6.30 % | 0.00 → 25.19 % | 2.903 → 2.583 | 3.623 → 3.729 | 3.12 → 2.56 |
+
+**Classification: `RANKING_DIFFERS`.** The predicted order was `linucb_pretrained` > `static_equal` >
+`threshold` > `static_safe`. On the switch it was `static_equal` > `static_safe` > `threshold` ≈
+`linucb_pretrained`; the last two differ by 0.0004.
+
+**The mechanism was named before the run.** Both adaptive policies hold eMBB bursts at level 0.50.
+The simulator gives that level a constant 3.12 ms median, under the 3.5 ms target. On the switch,
+the per-second median at level 0.50 during bursts averaged 3.59 ms for `linucb_pretrained`, with a
+standard deviation of 0.76 ms. It **crossed the 4.0 ms hard limit in 24 % of those seconds** (18 % for
+`threshold`).
+- All 17 of `linucb_pretrained`'s violations happened at level 0.50 in a burst.
+- Each one triggered a hard override and a three-step hold-down at level 0.20. It ended up spending
+  64 of 140 burst steps there, against none in the simulator, and gave up eMBB throughput to the
+  guardrail.
+- `static_equal` holds level 0.35, whose median of 2.53 ms is well clear of the limit, and lost
+  almost nothing.
+
+Two things the simulator lacks produced this: its bias at level 0.50 (§7.4, 3.65 measured against 3.12
+predicted), and second-to-second scatter in the median, which a jitter-free fluid model does not have.
+
+**What the static policies confirm.**
+- `static_safe` matches its prediction within 0.01 Mbps on both goodputs.
+- `static_equal` shows the §7.4 bias in the predicted direction: more eMBB, less Best Effort, and a
+  higher URLLC median at level 0.35.
+
+**What this does and does not show.** It does not show that `static_equal` is a better policy than
+`linucb_pretrained` in general. That would rest on one run per policy, at one operating point, under
+a hard limit 0.35 ms above the measured level-0.50 median. What it does show is narrower, and robust to
+all of that: **a policy trained in a simulator inherits the simulator's blind spots.** The learned
+policy chose the level the simulator rated safe; on the switch, that is the level whose latency
+straddles the limit. The guardrail did its job, holding violations to 6.3 % against a cost in
+throughput, but it could not make the learned operating point a good one.
+
+### 7.6 What this changes in §5 and §6
+
+The largest threat to validity is narrowed rather than removed.
+- The simulator's sharing rule is right in kind, so the control problem the policies were evaluated
+  on is real.
+- It is biased in degree, so absolute throughput numbers from the simulator should not be read as
+  predictions for a switch.
+- The check covers one operating point at constant load. It does not show the simulator agrees under
+  the jittered scenarios the policies were scored on.
+
+§7.5 adds a sharper qualification. **The policy ranking in §5 is a property of the simulator. It did
+not survive transfer to a real switch at the one point tested.** The online-versus-converged contrast
+in §5.1, and the context ablation in §5.2, were never run on hardware.
 
 ## 8. Limitations
 
@@ -520,7 +603,10 @@ Ordered by how much they threaten the conclusions.
 1. **The simulator is checked at one operating point, at constant load** (§7). It tracks the real
    switch in kind and is systematically biased in degree. Agreement under the fluctuating traffic
    of §5 is not shown.
-2. **No policy has run on the real switch.** Every policy result is a simulator result.
+2. **The policy ranking did not transfer to the real switch** (§7.5). That rests on one run per
+   policy, at one operating point, on one scenario. But the simulator's predicted winner tied for
+   last, for a reason a jitter-free simulator cannot represent. Every policy comparison in §5 and §6
+   is a simulator result.
 3. **The testbed cannot resolve tail latency at the scale the SLA uses.** Host jitter puts the
    uncongested p95 at 4 to 12 ms against a 7 ms limit, so p95 on this hardware measures the laptop
    as much as the queue (§7.2).
@@ -537,15 +623,16 @@ Ordered by how much they threaten the conclusions.
 
 ### What was not built
 
-- **`OvsCliBackend` and a live policy loop on the switch.** The runner, policies and guardrail are
-  written against a `NetworkBackend` interface and could drive the switch unchanged, but the
-  guardrail's p95 input and 7 ms limit cannot be used on this hardware as-is (limitation 3).
+- **A testbed version of the full policy study.** §7.5 is four runs on one scenario. The 320-run
+  comparison, the online bandits and the context ablation were never run on hardware, and would take
+  over a day of real time per seed.
 - **`RyuBackend` and an OpenFlow controller app**, deliberately. Ryu is unmaintained, and a
   controller closes no validity gap that the OVS management interface leaves open.
 
 **The defensible description of this work is a simulation study of a control policy and a safety
-mechanism, whose central modelling assumption was checked against a real programmable switch** —
-not an SDN controller evaluated end to end in emulation.
+mechanism, whose central modelling assumption was checked against a real programmable switch, and
+whose policies were then run live on that switch.** It is not an SDN controller evaluated end to end
+in emulation, and not a policy comparison validated on hardware.
 
 ## 9. Conclusion
 
@@ -571,9 +658,13 @@ by adversarial spikes more than twice as often as a converged contextual one on 
 it does not bound the violation rate, because it reacts to the previous interval. Systems claiming
 safety from such a mechanism should state which of the two they mean.
 
-The immediate future work is not a better algorithm. It is running the same policies live on the
-switch, which first needs a guardrail input that host jitter cannot trip, and checking the
-simulator under fluctuating rather than constant load.
+**A simulator-trained policy inherits the simulator's blind spots.** Run live on the switch, the
+converged bandit chose the operating point the simulator rated safe, and there the real latency
+straddled the limit. The guardrail contained the damage; it could not make the choice a good one.
+
+The immediate future work is therefore not a better algorithm. It is one of two things. Either a
+simulator with per-second latency noise calibrated to hardware, or training on the switch itself.
+Either should be followed by repeated live runs that can separate policies statistically.
 
 ---
 
@@ -595,7 +686,7 @@ motivation and are **not** compared against by measurement.
 Simulator, any machine, no privileges:
 
 ```bash
-pip install -r requirements.txt && pytest -q     # 233 tests
+pip install -r requirements.txt && pytest -q     # 253 tests
 python experiments/run_suite.py                  # 320 runs -> results/raw/
 python -m analysis.aggregate                     # every simulator table
 python -m analysis.plots                         # every simulator figure
@@ -609,6 +700,8 @@ python3 experiments/measure_noise_floor.py              # idle latency floor
 python3 experiments/sweep_levels_ovs.py                 # 15 runs, about 32 min
 python experiments/compare_sim_vs_ovs.py                # the §7.4 comparison
 python -m analysis.plot_testbed                         # figure 6
+python experiments/run_policies_ovs.py --backend sim    # the §7.5 prediction, any machine
+python3 experiments/run_policies_ovs.py --backend ovs_cli   # §7.5 on the switch, 4 x 300 s
 ```
 
 Every table is recomputed from per-step logs rather than read from a cache, so a changed metric

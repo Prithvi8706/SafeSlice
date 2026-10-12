@@ -97,7 +97,7 @@ runs.
 
 **Phase two, the testbed.** Real Mininet and Open vSwitch on WSL2 Ubuntu 24.04. Built in seven
 stages, each gated on the previous one producing output, with the rule for reading each result
-written down *before* the measurement was taken. That habit caught three real problems, described in
+written down *before* the measurement was taken. That habit caught four real problems, described in
 section 5.
 
 The second phase exists because the first one rested on an assumption nobody had checked.
@@ -312,6 +312,42 @@ Two honest qualifications:
   larger than the testbed's own interval. The real switch favours eMBB over Best Effort more than the
   model does.
 
+### Stage 6: the policies, live on the switch
+
+The last stage ran the policies themselves on the switch. A new backend, `net/ovs_cli_backend.py`,
+reads tc and ping every second and sets the eMBB cap through `ovs-vsctl`. Everything else is the code
+that produced the simulator study, unchanged.
+
+**The testbed needed its own SLO.** p95 on this laptop is mostly host jitter, so the guardrail, the
+reward and the threshold rule read the per-second median instead. The limits were re-derived from the
+stage 4 sweep: warn 3.0, target 3.5, hard 4.0 ms. That choice was the user's, put to them as a decision.
+
+**The prediction came first.** The same four runs were made in the simulator first, and their numbers
+were written down before the switch run.
+
+**The loop held.** All four 300 s runs passed every health check. Latency was measured, and the cap
+change confirmed in the kernel, on all 1,080 measured steps; every traffic generator was on target.
+Two smoke tests before it caught one bug in my harness, which was fixed and recorded.
+
+**The ranking did not transfer:**
+
+| Policy | Mean reward, simulator → switch | SLA violations on the switch |
+|---|---|---|
+| `linucb_pretrained` | **0.218** → 0.021 | 6.30 % |
+| `static_equal` | 0.196 → **0.172** | 0.74 % |
+| `threshold` | 0.164 → 0.021 | 5.93 % |
+| `static_safe` | 0.113 → 0.105 | 0.00 % |
+
+The reason was named before the run. Both adaptive policies park eMBB bursts at level 0.50, which the
+simulator gives a steady 3.12 ms. On the switch the per-second median there averaged 3.59 ms and
+crossed the 4.0 ms hard limit in about a quarter of those seconds. Each crossing forced a hard
+override and a hold-down at the lowest cap, which threw away the throughput the adaptive policies had
+been chosen for. `static_equal` sits one level lower, with plenty of margin.
+
+**What that means.** One run per policy cannot rank policies. It can show something narrower: **a policy
+trained in a simulator inherits the simulator's blind spots.** The learned policy chose the level the
+model rated safe, and on real hardware that is the level whose latency straddles the limit.
+
 ---
 
 ## 6. What the project establishes
@@ -330,6 +366,9 @@ Two honest qualifications:
    on the previous interval. Systems claiming safety from such a mechanism should say which of the
    two they mean.
 6. **The simulator is right in kind and biased in degree**, checked at one operating point.
+7. **The policy ranking is a property of the simulator.** The same code ran the real switch, and the
+   predicted winner tied for last. Its trained operating point was where the simulator's blind spot
+   sat. (Stage 6.)
 
 ---
 
@@ -338,7 +377,9 @@ Two honest qualifications:
 1. **One operating point, constant load.** The testbed comparison covers a single offered load with
    no jitter and five fixed caps. It does not show the simulator agrees under the fluctuating traffic
    the policies were actually evaluated on.
-2. **No policy has ever run on the real switch.** Every policy result is a simulator result.
+2. **Four live runs, one per policy, on one scenario.** Enough to show the loop works and that the
+   simulator's ranking did not transfer; not enough to rank policies on hardware. Every policy
+   comparison with intervals is a simulator result.
 3. **The testbed cannot resolve tail latency at the scale the SLA uses.** Host jitter puts the
    uncongested 95th percentile at 5 to 12 ms against a 7 ms limit, so p95 on this hardware measures
    the laptop as much as the queue.
@@ -357,12 +398,11 @@ Two honest qualifications:
 
 | Component | Status |
 |---|---|
-| `net/ovs_cli_backend.py` | Not written. Would let existing policies run live on the switch. |
-| Live policy loop on the testbed | Not run. Blocked on the tail-latency problem in limitation 3. |
+| The full policy study on hardware | Not run. The 320-run comparison would take over a day of real time per seed; stage 6 is four runs. |
+| A simulator with hardware-calibrated latency noise | Not built. It is the obvious response to stage 6. |
 | `RyuBackend`, `controller/ryu_app.py` | Deliberately out of scope. Ryu is unmaintained, and it closes no gap. |
-| Report rewrite around the testbed results | Not done. `docs/REPORT.md` still describes the simulator study alone. |
 
-The branch `feature/mininet-testbed` holds the entire testbed track and has not been merged.
+The branch `feature/mininet-testbed` holds the entire testbed track, and lands on `main` by pull request.
 
 ---
 
@@ -371,7 +411,7 @@ The branch `feature/mininet-testbed` holds the entire testbed track and has not 
 Simulator, any machine, no privileges:
 
 ```bash
-pip install -r requirements.txt && pytest -q     # 233 tests
+pip install -r requirements.txt && pytest -q     # 253 tests
 python experiments/run_suite.py                  # 320 runs
 python -m analysis.aggregate                     # every simulator table
 python -m analysis.plots                         # every simulator figure
@@ -385,6 +425,8 @@ python3 experiments/measure_noise_floor.py              # idle latency floor
 python3 experiments/sweep_levels_ovs.py --quick         # 5 runs, about 4 min
 python3 experiments/sweep_levels_ovs.py                 # 15 runs, about 32 min
 python experiments/compare_sim_vs_ovs.py                # simulator vs switch
+python experiments/run_policies_ovs.py --backend sim    # stage 6 prediction
+python3 experiments/run_policies_ovs.py --backend ovs_cli   # stage 6 live, 4 x 300 s
 ```
 
 Every table is recomputed from per-step logs rather than read from a cache, so changing a metric
@@ -407,18 +449,26 @@ definition changes the table instead of leaving a stale number behind.
 | `docs/PLAN_TESTBED.md` | The testbed plan, and every result with the rule recorded before it |
 | `docs/DESIGN.md` | Design decisions, each with its reasoning and its limitation |
 | `docs/EXPERIMENTS.md` | Protocol, metric definitions, simulator result tables |
-| `docs/REPORT.md` | The write-up of the simulator study |
+| `docs/REPORT.md` | The write-up: the simulator study, and the testbed in section 7 |
+| `net/ovs_cli_backend.py` | The same backend contract, on the real switch |
+| `config/testbed.yaml` | The testbed SLO, and how it was derived |
 
 ---
 
 ## 11. A note on method
 
-Three things in this project were got wrong and corrected rather than buried: a cap check that read
-the sender's rate as the receiver's, a delivery metric that measured ping's timer instead of packet
-loss, and a throughput measurement diluted by connection setup time. Each is recorded in the plan
-with the date and the correction, and the superseded result files are kept.
+Four things in this project were got wrong and corrected rather than buried:
+- a cap check that read the sender's rate as the receiver's;
+- a delivery metric that measured ping's timer instead of packet loss;
+- a throughput measurement diluted by connection setup time;
+- in stage 6, a harness that killed the traffic generators before they had written their reports.
+
+A fifth was a guess that a measurement refuted: the occasional long control interval was blamed on a
+slow `tc` read, and the logged read time showed it was the process waking late. Each is recorded in
+the plan with the date and the correction, and the superseded result files are kept.
 
 The habit that caught them was writing the rule for reading a measurement *before* taking it. Every
 testbed stage has a pre-recorded decision table in `docs/PLAN_TESTBED.md`, including the cases that
 would have killed the project. Two of those tables named outcomes that would have invalidated the
-simulator study, and both were run rather than avoided.
+simulator study, and both were run rather than avoided. A third, in stage 6, recorded a prediction
+that the switch then contradicted, and the contradiction is reported as the result.

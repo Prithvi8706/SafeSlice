@@ -4,6 +4,28 @@
 was written before any code existed and it describes a system that was not built. Presenting it
 unchanged alongside these results invites an examiner to find the gap before you point it out.
 
+**UPDATE 2026-10-12: some verdicts below have changed, because the testbed was built.** The
+reconciliation below was written when it was not, and is kept as written. Where it now differs:
+
+- **Pipeline stage 2, "Mininet + OVS data plane": now OK.** A real Mininet / Open vSwitch topology
+  with three HTB queues exists and was measured (`docs/REPORT.md` section 7).
+- **Stage 1, "traffic generation (Mininet hosts)": now OK for the testbed runs.** iperf3 and ping
+  between Mininet hosts generate the traffic.
+- **Stage 6, "dynamic queue update": now OK, but not via an OpenFlow meter.** The policies drove the
+  switch's queue caps live through `ovs-vsctl set queue`.
+- **Stage 3, "Ryu telemetry collection": still FALSE.** There is no Ryu; telemetry comes from tc and
+  ping.
+- **The deck header** may now say "Mininet + Open vSwitch + Contextual Bandit decision engine". It
+  still may not name Ryu.
+- **R4 (limitations) should be replaced with** the following. The simulator's central assumption was
+  checked on real OVS and holds in kind, biased in degree. The policies were then run live on the
+  switch, and the simulator's predicted winner tied for last, because it trained on a model with no
+  per-second latency noise. Say this one yourself: it is the most interesting result in the project,
+  and an examiner who finds it first will not frame it kindly.
+- **The defensible one-sentence framing is now:** *a simulation study of a safe contextual-bandit
+  slicing controller, whose modelling assumption was checked on real Open vSwitch and whose policies
+  were then run live on it.*
+
 This file is the slide-by-slide reconciliation: what each slide currently claims, whether the
 implementation supports it, and the exact replacement wording. Verdicts are one of:
 

@@ -458,3 +458,34 @@ value. Under load with the URLLC queue empty the median is unchanged but p99 ris
 The simulator study's SLO (`target 5.0 ms`, `hard 7.0 ms` on p95) is unchanged and still derived from
 the simulator's own range. The testbed's own SLO, re-derived on the median from the section 9 sweep, is
 in `config/testbed.yaml` and is used only by the live policy loop.
+
+## 11. Policies live on the real switch
+
+Added 2026-10-12. Full record in `docs/PLAN_TESTBED.md` sections 2.13 and 2.14, write-up in
+`docs/REPORT.md` section 7.5.
+
+The four policies below ran through the unmodified `run_once` with `net/ovs_cli_backend.py` as the
+backend: one 300 s run each, burst scenario with jitter off, seed 0. They ran under the testbed overlay
+`config/testbed.yaml`, which puts the SLO on the per-second median: warn 3.0, target 3.5, hard 4.0 ms.
+The simulator column is the same script with `--backend sim`, recorded as the prediction before the
+testbed run. **None of these numbers is comparable with sections 3 to 8**, which use a p95 SLO with a
+7.0 ms hard limit.
+
+| Policy | Mean reward, sim → OVS | SLA violations | Guardrail interventions | eMBB Mbps | BE Mbps | URLLC median in eMBB bursts (ms) |
+|---|---|---|---|---|---|---|
+| `static_equal` | 0.1959 → **0.1715** | 0.00 → 0.74 % | 0.00 → 2.96 % | 2.584 → 2.631 | 3.945 → 3.859 | 1.31 → 2.53 |
+| `static_safe` | 0.1127 → 0.1047 | 0.00 → 0.00 % | 0.00 → 0.00 % | 2.000 → 1.998 | 4.000 → 3.996 | 0.09 → 0.07 |
+| `threshold` | 0.1641 → 0.0211 | 1.48 → 5.93 % | 8.89 → 22.96 % | 2.811 → 2.603 | 3.664 → 3.709 | 3.12 → 2.35 |
+| `linucb_pretrained` | **0.2181** → 0.0207 | 0.00 → 6.30 % | 0.00 → 25.19 % | 2.903 → 2.583 | 3.623 → 3.729 | 3.12 → 2.56 |
+
+- **Loop health:** `LOOP_OK` on all four runs. Latency measured and the eMBB cap confirmed in tc on
+  every one of the 1,080 post-warm-up steps; all 40 iperf3 segments on target; intervals on time in
+  99.3 to 100 % of steps.
+- **Ranking: `RANKING_DIFFERS`.** On the switch the order is `static_equal` > `static_safe` >
+  `threshold` ≈ `linucb_pretrained`, the last two within 0.0004. The predicted order was
+  `linucb_pretrained` > `static_equal` > `threshold` > `static_safe`.
+- **Mechanism:** both adaptive policies hold eMBB bursts at level 0.50. There the switch's per-second
+  URLLC median averaged 3.59 ms, with a standard deviation of 0.76 ms. It crossed the 4.0 ms hard
+  limit in 24 % of those seconds (`linucb_pretrained`), against a constant 3.12 ms in the simulator.
+  The resulting hard overrides and hold-downs cost both policies their eMBB advantage.
+- **One run per policy:** no intervals, and no claim that one policy beats another on hardware.

@@ -2,7 +2,7 @@
 
 Branch: `feature/mininet-testbed`. `main` is protected; this lands by PR.
 
-Status, 2026-09-13:
+Status, 2026-09-13, updated 2026-10-12:
 
 - **Stage 1: PASS, on the corrected check.** The first run's cap check read iperf3's sender rate as
   receiver goodput and was void (kept at
@@ -28,11 +28,14 @@ Status, 2026-09-13:
 - **Stage 5: `TRACKS_demand_proportional`.** Section 2.12. The only mode of three that reproduces
   URLLC latency rising with the eMBB level. The label becomes `PARTIAL` at thresholds of 0.15 or
   stricter, and the model has systematic goodput biases larger than the testbed's intervals.
-- **Stage 7 started early, partially:** dated update notes added to `docs/DESIGN.md`,
-  `docs/EXPERIMENTS.md`, `docs/SETUP.md` and `docs/REPORT_OUTLINE.md` where they stated things now
-  false. The full rewrite has not been done.
-- **Stage 6 (live policy loop on OVS): not started.** Blocked on a design decision first: the
-  guardrail's p95 input and 7 ms limit cannot be used on this testbed as-is (section 2.10).
+- **Stage 6: complete, `LOOP_OK` on all four runs, `RANKING_DIFFERS`.** Section 2.14. The unmodified
+  policy code ran the real switch at 1 s for 4 x 300 s. The simulator's predicted winner,
+  `linucb_pretrained`, tied for last: at level 0.50 the switch's per-second URLLC median scatters across
+  the 4.0 ms hard limit, which the jitter-free simulator cannot show.
+- **Stage 7: complete, 2026-10-12.** `docs/REPORT.md` section 7 is the write-up; `docs/DESIGN.md`,
+  `docs/EXPERIMENTS.md`, `docs/SETUP.md`, `docs/REPORT_OUTLINE.md`, `docs/TESTBED_SETUP.md`,
+  `docs/DECK_REVISIONS.md`, `docs/OVERVIEW.md` and `README.md` carry dated updates where they had
+  stated things now false.
 
 ---
 
@@ -581,6 +584,70 @@ ended, before iperf3 had written its JSON report, so whether a report survived w
 The rule above is unchanged. The void result is kept at
 `results/summary/policy_live_ovs_cli_quick_superseded_client_kill_bug.json`, and its policy numbers
 are not read: a 90 s run has 60 post-warm-up steps and is a check of the loop, not a measurement.
+
+A second smoke run after the fix: all 20 iperf3 reports parsed and every sender was on target, but
+`static_safe` failed `on_time` (4 of 60 intervals off, in two pairs of about 1.4 s then 0.6 s with the
+caller on time) and `threshold` passed with one such pair. The rule was left as recorded. A field
+`tc_call_s` was added to the step log to test the guess that the `tc` read was stalling.
+
+### 2.14 Stage 6 result (2026-10-12)
+
+`results/summary/policy_live_ovs_cli.json`, per-step logs and loop logs in
+`results/testbed_policies/ovs_cli/`. Commit `815c43d` on the testbed, order `threshold`, `static_safe`,
+`static_equal`, `linucb_pretrained`, 300 s each, 270 post-warm-up steps each.
+
+**Loop health: `LOOP_OK` on all four runs.** Every step had its URLLC latency measured (at least 5
+replies; none missing), its eMBB ceiling confirmed in tc, and readable counters; all 40 iperf3 segments
+reported and were on target. Intervals on time: 100 % for `linucb_pretrained` and `static_equal`,
+99.3 % for `threshold` and `static_safe`, each of which had one long/short pair (1.62/0.38 s and
+1.42/0.58 s). **The `tc` guess was wrong:** the longest `tc` read in any run took 14 ms, median 2 ms. The
+stall is the loop process waking late from its sleep, which is host descheduling, the same family of
+effect as section 2.10. Counters are differenced over the measured interval, so rates are unaffected.
+
+**The demonstration stands: the same `run_once`, policies, guardrail and reward that produced the
+simulator study ran a real switch at 1 s, and the guardrail acted on it** (17 hard overrides for
+`linucb_pretrained`, 16 for `threshold`).
+
+Per policy, testbed against the section 2.13 prediction. URLLC median is during eMBB bursts, where
+the levels differ; the all-steps median in the JSON is dominated by idle phases.
+
+| Policy | Mean reward, sim → OVS | SLA violations | Guardrail interventions | eMBB Mbps | BE Mbps | URLLC median in bursts (ms) |
+|---|---|---|---|---|---|---|
+| `static_equal` | 0.1959 → **0.1715** | 0.00 → 0.74 % | 0.00 → 2.96 % | 2.584 → 2.631 | 3.945 → 3.859 | 1.31 → 2.53 |
+| `static_safe` | 0.1127 → 0.1047 | 0.00 → 0.00 % | 0.00 → 0.00 % | 2.000 → 1.998 | 4.000 → 3.996 | 0.09 → 0.07 |
+| `threshold` | 0.1641 → 0.0211 | 1.48 → 5.93 % | 8.89 → 22.96 % | 2.811 → 2.603 | 3.664 → 3.709 | 3.12 → 2.35 |
+| `linucb_pretrained` | **0.2181** → 0.0207 | 0.00 → 6.30 % | 0.00 → 25.19 % | 2.903 → 2.583 | 3.623 → 3.729 | 3.12 → 2.56 |
+
+**Ranking: `RANKING_DIFFERS`.** Testbed order `static_equal` (0.1715) > `static_safe` (0.1047) >
+`threshold` (0.0211) ≈ `linucb_pretrained` (0.0207), against the predicted `linucb_pretrained` >
+`static_equal` > `threshold` > `static_safe`. `threshold` and `linucb_pretrained` differ by 0.0004, under
+the 0.01 recorded as indistinguishable. `linucb_pretrained` fell from first to tied last, and
+`static_safe` rose above both adaptive policies.
+
+**Why, and it is the mechanism section 2.13 named in advance.** Both adaptive policies hold eMBB bursts
+at level 0.50, as predicted (simulator: 136 and 116 of 140 burst steps; testbed: they start there). In
+the simulator that level gives a constant 3.12 ms median, under the 3.5 ms target. On the switch, the
+per-second median at level 0.50 during bursts averaged 3.59 ms for `linucb_pretrained` (sd 0.76, n 72)
+and 3.38 ms for `threshold` (sd 0.66, n 57), and **exceeded the 4.0 ms hard limit in 24 % and 18 % of
+those seconds**. Every one of `linucb_pretrained`'s 17 violations was at level 0.50 in a burst. Each
+breach fires a hard override and a 3-step hold-down at level 0.20, so `linucb_pretrained` spent 64 of 140
+burst steps at 0.20, against none in the simulator, giving up eMBB throughput to the guardrail. `static_equal` sits at
+0.35, where the median is 2.53 ms, well clear of 4.0, and lost almost nothing. Two things the
+simulator does not have produced this: the section 2.12 bias at level 0.50 (3.65 measured against
+3.12 predicted in stage 4), and second-to-second scatter in the median, which a jitter-free fluid model
+has none of.
+
+**What the static policies confirm.** `static_safe` matches its prediction to within 0.01 Mbps on both
+goodputs. `static_equal` shows the section 2.12 bias in the predicted direction: more eMBB (+0.047),
+less BE (−0.086), and a higher URLLC median at level 0.35 (2.53 against 1.31 ms).
+
+**What this does not show**, per the rule: that `static_equal` is a better policy than
+`linucb_pretrained` in general. It is one run per policy, at one operating point, under an SLO whose hard
+limit sits 0.35 ms above the measured level 0.50 median. What it does show is narrower and robust to
+that: **a policy trained in the simulator inherits the simulator's blind spot.** The learned policy
+chose the level the simulator rated safe, and on the switch that level is the one whose latency
+straddles the limit. Training in a simulator with per-second latency noise, or a margin between the
+learned operating point and the hard limit, is the obvious follow-up, not done here.
 
 ---
 
