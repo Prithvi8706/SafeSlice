@@ -188,6 +188,7 @@ results/summary/   tables, testbed results and figures
 - **`docs/REPORT.md` — the write-up: abstract, method, results, the testbed (section 7),
   limitations, conclusion.**
 - `docs/OVERVIEW.md` — the whole project start to end, in one narrative.
+- `docs/RUNNING_THE_DEMO.md` — run the demo on your own machine, from a fresh clone, with expected output.
 - `docs/PLAN_TESTBED.md` — the testbed plan, and every result with the rule recorded before it.
 - `docs/TESTBED_SETUP.md` — installing and running Mininet and OVS on WSL2.
 - `docs/DECK_REVISIONS.md` — slide-by-slide reconciliation of the proposal deck with what was built.
